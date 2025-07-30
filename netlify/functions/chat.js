@@ -1,8 +1,13 @@
+//#1: OpenAI SDK Setup
 const { Configuration, OpenAIApi } = require("openai");
 
+//#2: Netlify Serverless Handler
 exports.handler = async function (event) {
   try {
-    // 🔍 DEBUG 1: Check if the event body exists
+    //#3: DEBUG - Raw Event Capture
+    console.log("🟡 RAW EVENT OBJECT:", event);
+
+    //#4: Validate incoming body
     if (!event.body) {
       console.error("❌ No input provided in event body.");
       return {
@@ -11,7 +16,10 @@ exports.handler = async function (event) {
       };
     }
 
+    //#5: Parse message from body
     const { message } = JSON.parse(event.body);
+    console.log("📨 Parsed message:", message);
+
     if (!message) {
       console.error("❌ Message field is empty.");
       return {
@@ -20,6 +28,7 @@ exports.handler = async function (event) {
       };
     }
 
+    //#6: Retrieve API key
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_KEY) {
       console.error("❌ OPENAI_API_KEY not found in environment.");
@@ -31,13 +40,16 @@ exports.handler = async function (event) {
 
     console.log("✅ OPENAI_API_KEY is set. Length:", OPENAI_KEY.length);
 
+    //#7: Configure OpenAI
     const configuration = new Configuration({
       apiKey: OPENAI_KEY,
     });
     const openai = new OpenAIApi(configuration);
 
-    console.log("📨 User Message:", message);
+    //#8: Log user message
+    console.log("💬 User Message:", message);
 
+    //#9: Create chat completion
     const completion = await openai.createChatCompletion({
       model: "gpt-4",
       messages: [
@@ -53,9 +65,10 @@ exports.handler = async function (event) {
       ],
     });
 
-    // 🔍 DEBUG 2.5: Log full completion response
+    //#10: DEBUG - Full OpenAI Response
     console.log("🧠 OpenAI Full Response:", JSON.stringify(completion.data, null, 2));
 
+    //#11: Extract AI reply
     const reply = completion?.data?.choices?.[0]?.message?.content;
 
     if (!reply) {
@@ -66,6 +79,7 @@ exports.handler = async function (event) {
       };
     }
 
+    //#12: Return Success Response
     return {
       statusCode: 200,
       body: JSON.stringify({ reply }),
