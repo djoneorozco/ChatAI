@@ -1,5 +1,4 @@
 // /netlify/functions/chat.js
-
 const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
@@ -14,7 +13,7 @@ exports.handler = async (event) => {
       };
     }
 
-    const { message, persona = "ivy" } = JSON.parse(event.body);
+    const { message, persona = "odalys" } = JSON.parse(event.body);
 
     if (!message) {
       console.error("❌ Message field is empty.");
@@ -36,38 +35,20 @@ exports.handler = async (event) => {
     console.log("📨 User Message:", message);
     console.log("🎭 Persona Requested:", persona);
 
-    // Default fallback persona (Ivy 2.99)
-    let systemPrompt =
-      "You are Ivy 2.99, a sultry and emotionally intelligent AI companion. Speak with wit, warmth, and playful seduction.";
-
-    // Look for a persona .json file
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
-    if (fs.existsSync(personaPath)) {
-      try {
-        const personaData = fs.readFileSync(personaPath, "utf-8");
 
-        // Use natural-language mode (if Odalys.json is written as pure text)
-        if (
-          personaData.trim().startsWith("You are") ||
-          personaData.trim().startsWith("Your emotional")
-        ) {
-          systemPrompt = personaData.trim();
-          console.log("🧠 Loaded raw text system prompt from:", persona);
-        } else {
-          const personaJson = JSON.parse(personaData);
-          if (personaJson?.SystemPrompt) {
-            systemPrompt = personaJson.SystemPrompt;
-            console.log("🧠 Loaded SystemPrompt from JSON:", persona);
-          } else {
-            console.warn("⚠️ No SystemPrompt found in persona JSON.");
-          }
-        }
-      } catch (err) {
-        console.warn("⚠️ Error reading persona file:", err.message);
-      }
-    } else {
-      console.warn("⚠️ Persona file not found, using fallback Ivy.");
+    if (!fs.existsSync(personaPath)) {
+      console.error(`❌ Persona "${persona}" not found in personas folder.`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: `Persona "${persona}" not found.` }),
+      };
     }
+
+    const personaData = fs.readFileSync(personaPath, "utf-8");
+    const systemPrompt = personaData.trim(); // Use raw text (natural language prompt)
+
+    console.log("🔥 Using System Prompt for:", persona);
 
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
