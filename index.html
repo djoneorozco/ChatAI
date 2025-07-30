@@ -27,17 +27,21 @@
       </div>
     </div>
 
+    <!-- //# Chat Window -->
     <div id="chatWindow" class="chat-window">
-      <!-- Messages will go here -->
+      <!-- Messages appear here -->
     </div>
 
+    <!-- //# Input Area -->
     <form id="chatForm" class="input-area">
       <input type="text" id="userInput" placeholder="Say something to Odalys..." autocomplete="off" required />
       <button type="submit">Send</button>
     </form>
   </div>
 
+  <!-- //# JavaScript Logic -->
   <script>
+    // 🌙 Theme Toggle
     document.getElementById('themeToggle').addEventListener('change', () => {
       document.body.classList.toggle('dark-mode');
     });
@@ -45,7 +49,13 @@
     const chatWindow = document.getElementById('chatWindow');
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
+    const trustProgress = document.getElementById('trustProgress');
 
+    // 💋 Load trust from storage or start at 1
+    let trustLevel = parseInt(localStorage.getItem('trustLevel')) || 1;
+    updateTrustBar();
+
+    // 📨 Submit Message
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -54,29 +64,54 @@
       appendMessage('You', userMessage, 'user');
       userInput.value = '';
 
-      const res = await fetch('/.netlify/functions/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          persona: 'odalys',
-          chatCount: document.querySelectorAll('.message.user').length,
-          quizScore: 0
-        })
-      });
+      try {
+        const res = await fetch('/.netlify/functions/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMessage,
+            persona: 'odalys',
+            chatCount: document.querySelectorAll('.message.user').length,
+            quizScore: 0
+          })
+        });
 
-      const data = await res.json();
-      if (data.reply) {
-        appendMessage('Odalys', data.reply, 'ai');
+        const data = await res.json();
+        if (data.reply) {
+          appendMessage('Odalys', data.reply, 'ai');
+          increaseTrust(); // 💋 Bump trust
+        }
+      } catch (err) {
+        appendMessage('Odalys', 'Oops, I’m having a moment... try again soon 💔', 'ai');
+        console.error(err);
       }
     });
 
+    // 💬 Add Message to Chat Window
     function appendMessage(sender, text, role) {
       const msg = document.createElement('div');
       msg.className = `message ${role}`;
       msg.innerHTML = `<span class="bubble"><strong>${sender}:</strong> ${text}</span>`;
       chatWindow.appendChild(msg);
       chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // 🔥 Trust Logic
+    function increaseTrust() {
+      if (trustLevel < 10) {
+        trustLevel++;
+        localStorage.setItem('trustLevel', trustLevel);
+        updateTrustBar();
+      }
+    }
+
+    function updateTrustBar() {
+      const widthPercent = (trustLevel / 10) * 100;
+      trustProgress.style.width = widthPercent + '%';
+      trustProgress.style.background = 'linear-gradient(to right, #ff4e50, #ff6b81)';
+      trustProgress.style.height = '100%';
+      trustProgress.style.borderRadius = '20px';
+      trustProgress.style.transition = 'width 0.5s ease-in-out';
     }
   </script>
 </body>
