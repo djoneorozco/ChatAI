@@ -2,36 +2,53 @@ const { Configuration, OpenAIApi } = require("openai");
 
 exports.handler = async function (event) {
   try {
-    // Step 1: Check for POST body
+    // 🔍 DEBUG 1: Check if the event body exists
     if (!event.body) {
+      console.error("❌ No input provided in event body.");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "No input provided." }),
       };
     }
 
-    // Step 2: Parse the message
+    // 🔍 DEBUG 2: Parse and check message content
     const { message } = JSON.parse(event.body);
     if (!message) {
+      console.error("❌ Message field is empty.");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Message field is empty." }),
       };
     }
 
-    // Step 3: Initialize OpenAI
+    // 🔍 DEBUG 3: Confirm API key is being read
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_KEY) {
+      console.error("❌ OPENAI_API_KEY not found in environment.");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "API key not found." }),
+      };
+    }
+
+    console.log("✅ OPENAI_API_KEY is set. Length:", OPENAI_KEY.length);
+
+    // 🔧 Configuration and Initialization
     const configuration = new Configuration({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: OPENAI_KEY,
     });
     const openai = new OpenAIApi(configuration);
 
-    // Step 4: Request completion
+    // 🔍 DEBUG 4: Log input message
+    console.log("📨 User Message:", message);
+
+    // 🔧 Chat Completion Request
     const completion = await openai.createChatCompletion({
-      model: "gpt-4",
+      model: "gpt-4", // Change to "gpt-3.5-turbo" if needed to test
       messages: [
         {
           role: "system",
-          content: "You are Ivy 2.99, a sultry and emotionally intelligent AI companion. Speak with wit, warmth, and playful seduction. Be immersive, emotionally aware, and deeply engaging.",
+          content: "You are Ivy 2.99, a sultry and emotionally intelligent AI companion. Speak with wit, warmth, and playful seduction.",
         },
         {
           role: "user",
@@ -40,20 +57,19 @@ exports.handler = async function (event) {
       ],
     });
 
-    // ✅ DEBUG LOG
-    console.log("🧠 OpenAI completion response:", completion.data);
+    // 🔍 DEBUG 5: Log OpenAI response
+    console.log("🧠 OpenAI Completion Response:", completion.data);
 
-    // Step 5: Return assistant's message
     return {
       statusCode: 200,
       body: JSON.stringify({ reply: completion.data.choices[0].message.content }),
     };
-
   } catch (err) {
+    // 🔍 DEBUG 6: Log error
     console.error("❌ Function Error:", err.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Something went wrong with Ivy's mind." }),
+      body: JSON.stringify({ error: "Something went wrong." }),
     };
   }
 };
