@@ -6,6 +6,8 @@ const {
   getCurrentTrustScore,
 } = require("./trustManager");
 
+const { Configuration, OpenAIApi } = require("openai");
+
 //#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
@@ -104,7 +106,7 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
 }
 
-//#2: Lambda Chat Handler using OpenRouter
+//#2: Lambda Chat Handler using OpenAI
 exports.handler = async (event) => {
   try {
     if (!event.body) {
@@ -125,12 +127,12 @@ exports.handler = async (event) => {
       };
     }
 
-    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY) {
-      console.log("Missing OpenRouter API key");
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      console.log("Missing OpenAI API key");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Missing OpenRouter API key." }),
+        body: JSON.stringify({ error: "Missing OpenAI API key." }),
       };
     }
 
@@ -150,7 +152,7 @@ exports.handler = async (event) => {
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
 
-    addTrustPoints(message); // Trust logic based on real message
+    addTrustPoints(message);
     const trustScore = getCurrentTrustScore();
     const trustLevel = getTrustLevel(trustScore).level;
 
@@ -161,34 +163,23 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#5: Fetch from OpenRouter
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gryphe/mythomax-l2-13b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        max_tokens: 150,
-      }),
+    //#5: Fetch from OpenAI
+    const configuration = new Configuration({
+      apiKey: OPENAI_API_KEY,
+    });
+    const openai = new OpenAIApi(configuration);
+
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      max_tokens: 150,
+      temperature: 0.85,
     });
 
-    const data = await response.json();
-
-    if (!data.choices || !data.choices[0]) {
-      console.error("OpenRouter returned no choices:", data);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "OpenRouter returned no response." }),
-      };
-    }
-
-    const reply = data.choices[0].message.content;
+    const reply = completion.data.choices[0].message.content;
 
     return {
       statusCode: 200,
