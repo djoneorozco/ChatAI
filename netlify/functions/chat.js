@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("../trustManager"); // Trust System Import
+const {
+  getTrustLevel,
+  addTrustPoints,
+} = require("./trustManager"); // ✅ Fixed import path
 
 //#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
@@ -24,7 +27,6 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     gptIntegration,
   } = persona;
 
-  // 🔥 Trust-Level Conditioning Layer
   let trustLayer = "";
   if (trustLevel < 3) {
     trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
@@ -105,7 +107,6 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 exports.handler = async (event) => {
   try {
     if (!event.body) {
-      console.log("No body in request");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "No input provided." }),
@@ -115,7 +116,6 @@ exports.handler = async (event) => {
     const { message, persona = "odalys", chatCount = 0, quizScore = 0 } = JSON.parse(event.body);
 
     if (!message) {
-      console.log("Empty message input");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Message field is empty." }),
@@ -124,7 +124,6 @@ exports.handler = async (event) => {
 
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
     if (!OPENROUTER_KEY) {
-      console.log("Missing OpenRouter API key");
       return {
         statusCode: 500,
         body: JSON.stringify({ error: "Missing OpenRouter API key." }),
@@ -133,10 +132,9 @@ exports.handler = async (event) => {
 
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
     if (!fs.existsSync(personaPath)) {
-      console.log(`Persona file not found: ${personaPath}`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: `Persona \"${persona}\" not found.` }),
+        body: JSON.stringify({ error: `Persona "${persona}" not found.` }),
       };
     }
 
@@ -157,7 +155,7 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#5: Fetch from OpenRouter using OpenChat 3.5
+    //#5: Fetch from OpenRouter (Model: OpenChat-3.5)
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -165,13 +163,13 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openchat/openchat-3.5", // ✅ This is the correct model ID
+        model: "openchat/openchat-3.5", // ✅ Valid OpenRouter model ID
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: message }
+          { role: "user", content: message },
         ],
-        max_tokens: 150
-      })
+        max_tokens: 150,
+      }),
     });
 
     const data = await response.json();
