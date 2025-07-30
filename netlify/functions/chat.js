@@ -1,9 +1,13 @@
 const fs = require("fs");
 const path = require("path");
-const OpenAI = require("openai");
+const {
+  getTrustLevel,
+  addTrustPoints,
+  getCurrentTrustScore,
+} = require("./trustManager");
 
 //#1: Dynamic System Prompt Builder
-function generateSystemPrompt(persona, chatCount = 0) {
+function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
     name,
     mbti,
@@ -23,6 +27,19 @@ function generateSystemPrompt(persona, chatCount = 0) {
     gameplayFeatures,
     gptIntegration,
   } = persona;
+
+  let trustLayer = "";
+  if (trustLevel < 3) {
+    trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
+  } else if (trustLevel < 5) {
+    trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
+  } else if (trustLevel < 7) {
+    trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
+  } else if (trustLevel < 9) {
+    trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
+  } else {
+    trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
+  }
 
   return `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
@@ -80,12 +97,14 @@ Side Hustles: ${professionalBackground?.sideHustles}
 Goals: ${goalsAndAspirations?.now}
 5-Year Vision: ${goalsAndAspirations?.fiveYears}
 
+🌡 Trust Level Layer: ${trustLayer}
+
 Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul.
 NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
 }
 
-//#2: Lambda Chat Handler
+//#2: Lambda Chat Handler using OpenRouter
 exports.handler = async (event) => {
   try {
     if (!event.body) {
@@ -106,12 +125,12 @@ exports.handler = async (event) => {
       };
     }
 
-    const OPENAI_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_KEY) {
-      console.log("Missing OpenAI API key");
+    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+    if (!OPENROUTER_KEY) {
+      console.log("Missing OpenRouter API key");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Missing API key." }),
+        body: JSON.stringify({ error: "Missing OpenRouter API key." }),
       };
     }
 
@@ -125,31 +144,55 @@ exports.handler = async (event) => {
     }
 
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
-    const systemPrompt = generateSystemPrompt(personaJson, chatCount);
 
-    //#3: Image Unlock Logic
+    //#3: Trust Meter Scoring Logic
+    let basePoints = 1;
+    if (message.length > 60 || message.includes("?")) basePoints = 3;
+    if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
+
+    addTrustPoints(message); // Trust logic based on real message
+    const trustScore = getCurrentTrustScore();
+    const trustLevel = getTrustLevel(trustScore).level;
+
+    const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
+
+    //#4: Image Unlock Logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#4: Call OpenAI
-    const openai = new OpenAI({ apiKey: OPENAI_KEY });
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      max_tokens: 150,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
+    //#5: Fetch from OpenRouter
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "Nous-Hermes-2-Mistral",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        max_tokens: 150,
+      }),
     });
 
-    console.log("OpenAI completion:", completion);
+    const data = await response.json();
 
-    const reply = completion?.choices?.[0]?.message?.content || "Sorry, I didn’t catch that.";
+    if (!data.choices || !data.choices[0]) {
+      console.error("OpenRouter returned no choices:", data);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "OpenRouter returned no response." }),
+      };
+    }
+
+    const reply = data.choices[0].message.content;
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply, imageUnlock }),
+      body: JSON.stringify({ reply, imageUnlock, trustLevel }),
     };
   } catch (err) {
     console.error("Server error:", err);
