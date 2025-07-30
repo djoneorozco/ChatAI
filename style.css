@@ -1,58 +1,219 @@
-body {
-  font-family: 'Arial', sans-serif;
-  background: #121212;
-  color: #fff;
+/* === GLOBAL RESET === */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-.chat-container {
-  max-width: 600px;
-  margin: 3rem auto;
-  padding: 1rem;
-  background: #1e1e1e;
-  border-radius: 12px;
-  height: 70vh;
-  overflow-y: auto;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+/* === DARK MODE TOGGLE POSITION === */
+.toggle-container {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  font-size: 14px;
+  z-index: 10;
+  color: #000;
 }
 
-.message {
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-  line-height: 1.4;
+body:not(.dark-mode) #darkVideo {
+  display: none;
 }
 
-.assistant {
-  background: #2e2e2e;
+body.dark-mode #lightVideo {
+  display: none;
 }
 
-.user {
-  text-align: right;
-  color: #00ffb3;
-}
-
-form {
+/* === BACKGROUND & THEME === */
+body {
+  font-family: 'Inter', sans-serif;
+  background: #d3cfc9;
+  color: #000;
   display: flex;
-  max-width: 600px;
-  margin: 1rem auto;
-  padding: 0 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
-input {
-  flex: 1;
-  padding: 12px;
-  font-size: 16px;
-  border-radius: 6px 0 0 6px;
-  border: none;
+/* === DARK MODE STYLING === */
+body.dark-mode {
+  background: #121212;
+  color: #f1f1f1;
 }
 
+body.dark-mode .toggle-container {
+  color: #f1f1f1;
+}
+
+body.dark-mode form {
+  background: linear-gradient(to bottom, #222, #333);
+  color: #fff;
+}
+
+body.dark-mode input,
+body.dark-mode input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode button {
+  background: linear-gradient(to right, #ff6a00, #ff2d55);
+}
+
+body.dark-mode button:hover {
+  background: linear-gradient(to right, #ff2d55, #ff6a00);
+  box-shadow: 0 0 20px rgba(255, 106, 0, 0.4);
+}
+
+/* === VIDEO BACKGROUND CORNER === */
+#lightVideo,
+#darkVideo {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 240px;
+  height: auto;
+  z-index: 2;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  opacity: 1;
+  pointer-events: none;
+}
+
+/* === CHAT CARD === */
+form {
+  position: relative;
+  z-index: 3;
+  background: linear-gradient(to bottom, #fff, #e7e4df);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 24px;
+  padding: 42px 32px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+  transition: all 0.4s ease;
+}
+
+form::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -40%;
+  width: 180%;
+  height: 180%;
+  background-image: url("/images/uploads/backgroundlayer.svg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  opacity: 0.05;
+  animation: swirlBG 60s linear infinite;
+  pointer-events: none;
+}
+
+form > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* === TEXT === */
+form h2 {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+form p {
+  text-align: center;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 28px;
+}
+
+label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #222;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* === INPUT === */
+input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  font-size: 14px;
+  color: #000;
+  margin-bottom: 20px;
+  transition: all 0.25s ease;
+}
+
+input[type="text"]:focus {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: #9a6aff;
+  outline: none;
+}
+
+/* === BUTTON === */
 button {
-  padding: 12px;
-  background: #ff4e50;
-  color: white;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(to right, #9a6aff, #4b00ff);
   border: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 30px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+button:hover {
+  background: linear-gradient(to right, #4b00ff, #9a6aff);
+  box-shadow: 0 0 20px rgba(154, 106, 255, 0.3);
+}
+
+/* === CHAT WINDOW === */
+#chatWindow {
+  background: rgba(0,0,0,0.03);
+  padding: 14px;
+  border-radius: 12px;
+  height: 300px;
+  overflow-y: auto;
+  font-size: 14px;
+  color: #333;
+}
+
+/* === ANIMATIONS === */
+@keyframes swirlBG {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === MOBILE === */
+@media (max-width: 600px) {
+  form {
+    padding: 32px 20px;
+  }
+
+  #lightVideo,
+  #darkVideo {
+    width: 100px;
+    bottom: 12px;
+    left: 12px;
+  }
 }
