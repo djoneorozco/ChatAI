@@ -101,7 +101,7 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
 }
 
-//#2: Lambda Chat Handler using OpenRouter
+//#2: Lambda Chat Handler using OpenRouter + OpenChat 3.5
 exports.handler = async (event) => {
   try {
     if (!event.body) {
@@ -157,7 +157,7 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#5: Fetch from OpenRouter
+    //#5: Fetch from OpenRouter using OpenChat 3.5
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -165,7 +165,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "mistralai/mistral-7b-instruct",
+        model: "openchat/openchat-3.5", // ✅ This is the correct model ID
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
