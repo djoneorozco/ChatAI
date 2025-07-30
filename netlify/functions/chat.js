@@ -163,7 +163,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "MythoMax-L2 13B", // ✅ Valid OpenRouter model ID
+        model: "gryphe/mythomax-l2-13b", // ✅ Valid OpenRouter model ID
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
