@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("../trustManager"); // Trust System Import
+const { getTrustLevel, addTrustPoints } = require("./trustManager"); // ✅ Trust System Import Fixed
 
 //#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
