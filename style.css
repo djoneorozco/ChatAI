@@ -1,6 +1,6 @@
 body {
-  font-family: sans-serif;
-  background: #1a1a1a;
+  font-family: 'Arial', sans-serif;
+  background: #121212;
   color: #fff;
   margin: 0;
   padding: 0;
@@ -8,27 +8,29 @@ body {
 
 .chat-container {
   max-width: 600px;
-  margin: 2rem auto;
+  margin: 3rem auto;
   padding: 1rem;
-  background: #2b2b2b;
+  background: #1e1e1e;
   border-radius: 12px;
   height: 70vh;
   overflow-y: auto;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 .message {
-  padding: 8px;
+  padding: 10px;
   margin-bottom: 10px;
+  border-radius: 8px;
+  line-height: 1.4;
 }
 
 .assistant {
-  background: #444;
-  border-radius: 8px;
+  background: #2e2e2e;
 }
 
 .user {
   text-align: right;
-  color: #00ffa1;
+  color: #00ffb3;
 }
 
 form {
@@ -42,6 +44,8 @@ input {
   flex: 1;
   padding: 12px;
   font-size: 16px;
+  border-radius: 6px 0 0 6px;
+  border: none;
 }
 
 button {
@@ -49,4 +53,6 @@ button {
   background: #ff4e50;
   color: white;
   border: none;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
 }
