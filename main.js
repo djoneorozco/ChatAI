@@ -1,40 +1,40 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('chat-form');
-  const input = document.getElementById('input');
-  const chat = document.getElementById('chat');
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const userMessage = input.value.trim();
-    if (!userMessage) return;
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const userMessage = input.value.trim();
+  if (!userMessage) return;
 
-    appendMessage('user', userMessage);
-    input.value = '';
+  appendMessage('user', userMessage);
+  input.value = '';
 
-    try {
-      const response = await fetch('/.netlify/functions/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage })
-      });
+  try {
+    console.log("📤 Attempting to send message:", userMessage); // DEBUG
 
-      const data = await response.json();
-      console.log("✅ OpenAI reply received:", data); // DEBUG LOG
+    const response = await fetch('/.netlify/functions/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: userMessage }),
+    });
 
-      appendMessage('assistant', data.reply || 'Hmm… I’m speechless.');
-    } catch (err) {
-      console.error('❌ Fetch error:', err); // DEBUG LOG
-      appendMessage('assistant', "Oops, something went wrong connecting with Ivy.");
-    }
-  });
+    const data = await response.json();
+    console.log("✅ OpenAI reply received:", data); // DEBUG
 
-  function appendMessage(role, text) {
-    const msg = document.createElement('div');
-    msg.classList.add('message', role);
-    msg.textContent = (role === 'assistant' ? '🧠 Ivy 2.99: ' : 'You: ') + text;
-    chat.appendChild(msg);
-    chat.scrollTop = chat.scrollHeight;
+    appendMessage('assistant', data.reply || "Hmm… I'm speechless.");
+  } catch (err) {
+    console.error("❌ Fetch error:", err); // DEBUG
+    appendMessage('assistant', "Oops, something went wrong connecting with Ivy.");
   }
 });
+
+function appendMessage(role, text) {
+  const msg = document.createElement('div');
+  msg.classList.add('message', role);
+  msg.textContent = (role === 'assistant' ? '🧠 Ivy 2.99: ' : '🩷 You: ') + text;
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+}
