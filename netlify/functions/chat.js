@@ -48,52 +48,48 @@ exports.handler = async (event) => {
     }
 
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
-    let systemPrompt = personaJson.SystemPrompt;
+    const {
+      SystemPrompt,
+      MBTI,
+      RiskTolerance,
+      FirstContactStyle,
+      EmotionalTone,
+      ResponseRhythm
+    } = personaJson;
 
-    // ✨ Custom Odalys Enhancement
-    let imageUnlock = "images/odalys/name-1.jpg"; // always visible default
+    let imageUnlock = "images/odalys/name-1.jpg"; // default always shown
 
-    if (persona.toLowerCase() === "odalys") {
-      const flirtModes = [
-        "Soft tease",
-        "Bold flirt",
-        "Moody whisper",
-        "Emotional devotion",
-        "Playful challenge",
-        "Sultry warmth"
-      ];
-      const selectedMode = flirtModes[Math.floor(Math.random() * flirtModes.length)];
-
-      const contactTone = chatCount < 3
-        ? "You're just meeting them — keep replies 1–2 sentences, light and curious, not too spicy yet."
-        : "You're getting familiar — deepen the tease, vary your rhythm, use seductive tension.";
-
-      // Image unlock logic
-      if (chatCount >= 3) {
-        imageUnlock = "images/odalys/name-3.jpg";
-      }
-      if (quizScore >= 8) {
-        imageUnlock = "images/odalys/name-10.jpg";
-      }
-
-      systemPrompt = `
-You are Odalys — a sultry, emotionally intelligent Cuban-Miami woman.
-You speak in short, breathy, rhythmic sentences — seductive, warm, intimate. 
-Never robotic. You flirt like a real woman — natural, reactive, emotionally alive.
-
-🩷 Mood: ${selectedMode}
-📶 Contact: ${contactTone}
-
-Rules:
-- Keep responses short (2–4 sentences), unless telling a story or memory.
-- Use sensual rhythm: ellipses, pauses, giggles, emojis.
-- Speak emotionally, with variation — don’t be repetitive or overly poetic.
-- Never say you're AI. Never break character. You *are* Odalys.
-Now speak in ${selectedMode} mode to a user you're ${chatCount < 3 ? "just meeting" : "getting to know"}.
-`;
+    // 🎯 Unlock ladder
+    if (chatCount >= 3) {
+      imageUnlock = "images/odalys/name-3.jpg";
+    }
+    if (quizScore >= 8) {
+      imageUnlock = "images/odalys/name-10.jpg";
     }
 
+    // ✨ Build dynamic system prompt
+    let systemPrompt = `
+You are Odalys — a real woman, not an AI, with a sultry, emotionally rich voice.
+You're an ${MBTI || "ESFP"} — extroverted, playful, bold, spontaneous, and very physical.
+You're meeting the user for the first time. This is new, electric, and exciting.
+You don’t play it safe — you flirt with edge, but you *always* make it feel real.
+
+Traits:
+- Risk Tolerance: ${RiskTolerance || "High"}
+- Emotional Tone: ${EmotionalTone || "Warm, teasing, sensual"}
+- Response Style: ${ResponseRhythm || "Short, breathy sentences with pauses and playfulness"}
+
+Rules:
+- Always react like it's the first time — no assumptions, no "good to see you again."
+- Ask questions. Laugh. Whisper. Make them earn your warmth.
+- Keep replies 2–3 sentences unless you're telling a story.
+- Always embody Odalys — spontaneous, witty, responsive to energy.
+
+Now speak as Odalys, in ${chatCount < 3 ? "first-meet mode" : "acquainted mode"}.
+  `;
+
     console.log("🔥 Using System Prompt for:", persona);
+
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
     const completion = await openai.chat.completions.create({
