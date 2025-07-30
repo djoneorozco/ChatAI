@@ -1,45 +1,50 @@
 // /netlify/functions/chat.js
 
-const fs = require("fs");
-const path = require("path");
-const OpenAI = require("openai");
+import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-exports.handler = async function (event) {
+// Required for __dirname support in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export async function handler(event) {
   try {
     if (!event.body) {
-      console.error("❌ No input provided in event body.");
+      console.error("❌ No input provided.");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "No input provided." }),
       };
     }
 
-    const { message, persona } = JSON.parse(event.body);
-
-    if (!message || !persona) {
-      console.error("❌ Missing message or persona.");
+    const { message } = JSON.parse(event.body);
+    if (!message) {
+      console.error("❌ Message is missing.");
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Message or persona not provided." }),
+        body: JSON.stringify({ error: "Message field is empty." }),
       };
     }
+
+    // 🔥 Load Leila's personality from JSON
+    const personaPath = path.join(__dirname, "personas", "leila.json");
+    const personaData = JSON.parse(fs.readFileSync(personaPath, "utf8"));
+
+    const systemPrompt = personaData.systemPrompt || "You are a flirty AI.";
+
+    console.log("📨 User Message:", message);
+    console.log("🧠 Persona Loaded:", personaPath);
+    console.log("🧾 System Prompt:", systemPrompt.substring(0, 100) + "...");
 
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_KEY) {
-      console.error("❌ OPENAI_API_KEY not found.");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "API key not set." }),
+        body: JSON.stringify({ error: "OPENAI_API_KEY not set." }),
       };
     }
-
-    console.log("📨 User Message:", message);
-    console.log("👤 Persona Requested:", persona);
-
-    // Load persona JSON
-    const personaPath = path.join(__dirname, "personas", `${persona}.json`);
-    const personaData = JSON.parse(fs.readFileSync(personaPath, "utf8"));
-    const personalityIntro = personaData?.personaIntro || "You are a helpful assistant.";
 
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
@@ -48,7 +53,7 @@ exports.handler = async function (event) {
       messages: [
         {
           role: "system",
-          content: personalityIntro,
+          content: systemPrompt, // 👈 Leila's full personality
         },
         {
           role: "user",
@@ -58,23 +63,15 @@ exports.handler = async function (event) {
     });
 
     const reply = completion?.choices?.[0]?.message?.content;
-
-    if (!reply) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "No reply from OpenAI." }),
-      };
-    }
-
     return {
       statusCode: 200,
       body: JSON.stringify({ reply }),
     };
   } catch (err) {
-    console.error("❌ Function Error:", err);
+    console.error("💥 Error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Function crashed: " + err.message }),
+      body: JSON.stringify({ error: err.message }),
     };
   }
-};
+}
