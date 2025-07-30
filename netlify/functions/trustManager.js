@@ -16,13 +16,13 @@ const LEVELS = [
 
 const TRUST_PER_LEVEL = 10;
 
-//#2: Trust Level Reader
-function getTrustLevel(score = 0) {
+//#2: Trust Score Engine
+function getTrustLevel(score) {
   const level = Math.min(Math.floor(score / TRUST_PER_LEVEL) + 1, 10);
   return LEVELS[level - 1];
 }
 
-function getTrustProgress(score = 0) {
+function getTrustProgress(score) {
   const level = getTrustLevel(score).level;
   const base = (level - 1) * TRUST_PER_LEVEL;
   const current = score - base;
@@ -30,29 +30,39 @@ function getTrustProgress(score = 0) {
   return { level, percent };
 }
 
-//#3: Score Calculation Handler
-function updateTrustScore(currentScore = 0, message = "", isQuizPassed = false) {
+//#3: Message Evaluation
+function updateTrustScore(currentScore, message, isQuizPassed = false) {
   let score = currentScore;
   const msg = message.toLowerCase();
 
-  // Negative behavior penalty
   if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
   if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
   if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
 
-  // Quiz boost
   if (isQuizPassed) return Math.min(score + 10, 100);
 
-  // General message scoring
   const tokenCount = message.split(" ").length;
   const bonus = tokenCount >= 15 ? 3 : 1;
   return Math.min(score + bonus, 100);
 }
 
-//#4: Export as CommonJS (Netlify-compatible)
+//#4: Add Trust Layer (temporary memory, replace with DB later)
+let currentTrust = 0;
+
+function addTrustPoints(message) {
+  currentTrust = updateTrustScore(currentTrust, message);
+}
+
+function getCurrentTrustScore() {
+  return currentTrust;
+}
+
+//#5: Exports
 module.exports = {
   LEVELS,
   getTrustLevel,
   getTrustProgress,
-  updateTrustScore
+  updateTrustScore,
+  addTrustPoints,
+  getCurrentTrustScore,
 };
