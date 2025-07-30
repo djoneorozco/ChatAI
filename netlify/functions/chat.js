@@ -1,11 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const {
-  getTrustLevel,
-  addTrustPoints,
-  getCurrentTrustScore,
-} = require("./trustManager");
-
+const { getTrustLevel, addTrustPoints, getCurrentTrustScore } = require("./trustManager");
 const { Configuration, OpenAIApi } = require("openai");
 
 //#1: Dynamic System Prompt Builder
@@ -110,7 +105,6 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 exports.handler = async (event) => {
   try {
     if (!event.body) {
-      console.log("No body in request");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "No input provided." }),
@@ -118,18 +112,15 @@ exports.handler = async (event) => {
     }
 
     const { message, persona = "odalys", chatCount = 0, quizScore = 0 } = JSON.parse(event.body);
-
     if (!message) {
-      console.log("Empty message input");
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Message field is empty." }),
       };
     }
 
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      console.log("Missing OpenAI API key");
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_KEY) {
       return {
         statusCode: 500,
         body: JSON.stringify({ error: "Missing OpenAI API key." }),
@@ -138,7 +129,6 @@ exports.handler = async (event) => {
 
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
     if (!fs.existsSync(personaPath)) {
-      console.log(`Persona file not found: ${personaPath}`);
       return {
         statusCode: 404,
         body: JSON.stringify({ error: `Persona \"${persona}\" not found.` }),
@@ -147,7 +137,6 @@ exports.handler = async (event) => {
 
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
 
-    //#3: Trust Meter Scoring Logic
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
@@ -158,16 +147,12 @@ exports.handler = async (event) => {
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#4: Image Unlock Logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#5: Fetch from OpenAI
-    const configuration = new Configuration({
-      apiKey: OPENAI_API_KEY,
-    });
-    const openai = new OpenAIApi(configuration);
+    const config = new Configuration({ apiKey: OPENAI_KEY });
+    const openai = new OpenAIApi(config);
 
     const completion = await openai.createChatCompletion({
       model: "gpt-4",
@@ -176,7 +161,6 @@ exports.handler = async (event) => {
         { role: "user", content: message },
       ],
       max_tokens: 150,
-      temperature: 0.85,
     });
 
     const reply = completion.data.choices[0].message.content;
