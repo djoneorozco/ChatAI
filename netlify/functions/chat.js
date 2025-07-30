@@ -1,6 +1,10 @@
 const fs = require("fs");
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("./trustManager"); // ✅ Trust System Import Fixed
+const {
+  getTrustLevel,
+  addTrustPoints,
+  getCurrentTrustScore,
+} = require("./trustManager");
 
 //#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
@@ -24,7 +28,6 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     gptIntegration,
   } = persona;
 
-  // 🔥 Trust-Level Conditioning Layer
   let trustLayer = "";
   if (trustLevel < 3) {
     trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
@@ -147,8 +150,9 @@ exports.handler = async (event) => {
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
 
-    await addTrustPoints(basePoints);
-    const trustLevel = await getTrustLevel();
+    addTrustPoints(message); // Trust logic based on real message
+    const trustScore = getCurrentTrustScore();
+    const trustLevel = getTrustLevel(trustScore).level;
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
@@ -161,17 +165,17 @@ exports.handler = async (event) => {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "mistralai/mistral-7b-instruct",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: message }
+          { role: "user", content: message },
         ],
-        max_tokens: 150
-      })
+        max_tokens: 150,
+      }),
     });
 
     const data = await response.json();
