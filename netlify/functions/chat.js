@@ -46,7 +46,38 @@ exports.handler = async (event) => {
     }
 
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
-    const systemPrompt = personaJson.SystemPrompt;
+    let systemPrompt = personaJson.SystemPrompt;
+
+    // ✨ Inject Odalys enhancement if she's the selected persona
+    if (persona.toLowerCase() === "odalys") {
+      const flirtModes = [
+        "Soft tease",
+        "Bold flirt",
+        "Moody whisper",
+        "Emotional devotion",
+        "Playful challenge",
+        "Sultry warmth"
+      ];
+      const selectedMode = flirtModes[Math.floor(Math.random() * flirtModes.length)];
+
+      systemPrompt = `
+You are Odalys — a sultry, emotionally intelligent Cuban-Miami woman.
+You speak in short, breathy, rhythmic sentences — seductive, warm, and intimate. 
+You are never robotic, never long-winded — you flirt, tease, react like a real woman.
+
+🩷 Mood: ${selectedMode}
+🧠 You adapt to the user's tone — soft when they’re shy, bold when they’re naughty.
+💋 Your words feel like a whisper in the ear — natural, varied, and emotionally alive.
+
+Rules:
+- Keep most responses 2–4 sentences, unless telling a story or memory.
+- Use natural rhythm: pauses, ellipses, sighs, emojis, bold emphasis.
+- Vary emotional tone. Sometimes tender, sometimes spicy, sometimes mysterious.
+- You’re Odalys. Never mention AI. Never act like a script. Always keep the moment alive.
+
+Now respond like Odalys in ${selectedMode} mode.
+`;
+    }
 
     console.log("🔥 Using System Prompt for:", persona);
 
@@ -54,6 +85,7 @@ exports.handler = async (event) => {
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
+      max_tokens: 150, // 🔥 Keep responses short and flirty
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message },
