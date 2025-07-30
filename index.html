@@ -3,52 +3,71 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SaSStisfied – Chat</title>
+  <title>SaSStisfied Chat</title>
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <div class="chat-wrapper">
+    <header>
+      <h1>SaSStisfied 💋</h1>
+      <label class="toggle-container">
+        <input type="checkbox" id="themeToggle" />
+        🌙 Dark Mode
+      </label>
+    </header>
 
-  <!-- 🌙 Dark Mode Toggle -->
-  <div class="toggle-container">
-    <label>
-      <input type="checkbox" id="themeToggle" />
-      🌙 Dark Mode
-    </label>
+    <div id="chatWindow" class="chat-window">
+      <!-- Messages will go here -->
+    </div>
+
+    <form id="chatForm" class="input-area">
+      <input type="text" id="userInput" placeholder="Say something to Odalys..." autocomplete="off" required />
+      <button type="submit">Send</button>
+    </form>
   </div>
 
-  <!-- 🎥 Background Videos -->
-  <video id="lightVideo" autoplay muted loop playsinline>
-    <source src="/images/uploads/lightcornervideo.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
-  </video>
-
-  <video id="darkVideo" autoplay muted loop playsinline>
-    <source src="/images/uploads/darkcornervideo.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
-  </video>
-
-  <!-- 💬 Chat Container -->
-  <form id="chatForm">
-    <h2>SaSStisfied</h2>
-    <p>Your private AI seduction simulator</p>
-
-    <div id="chatWindow" style="max-height: 300px; overflow-y: auto; margin-bottom: 24px;"></div>
-
-    <label for="userInput">Type your message</label>
-    <input type="text" id="userInput" placeholder="Say something to Odalys..." autocomplete="off" required />
-
-    <button type="submit">Send</button>
-  </form>
-
-  <!-- 🌗 Toggle Script -->
   <script>
-    document.getElementById('themeToggle').addEventListener('change', function () {
+    document.getElementById('themeToggle').addEventListener('change', () => {
       document.body.classList.toggle('dark-mode');
     });
-  </script>
 
-  <!-- 🧠 Chat Logic -->
-  <script src="main.js"></script>
+    const chatWindow = document.getElementById('chatWindow');
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userMessage = userInput.value.trim();
+      if (!userMessage) return;
+
+      appendMessage('You', userMessage, 'user');
+      userInput.value = '';
+
+      const res = await fetch('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          persona: 'odalys',
+          chatCount: document.querySelectorAll('.message.user').length,
+          quizScore: 0
+        })
+      });
+
+      const data = await res.json();
+      if (data.reply) {
+        appendMessage('Odalys', data.reply, 'ai');
+      }
+    });
+
+    function appendMessage(sender, text, role) {
+      const msg = document.createElement('div');
+      msg.className = `message ${role}`;
+      msg.innerHTML = `<span class="bubble"><strong>${sender}:</strong> ${text}</span>`;
+      chatWindow.appendChild(msg);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+  </script>
 </body>
 </html>
