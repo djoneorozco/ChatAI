@@ -33,6 +33,8 @@ function getTrustProgress(score) {
 //#3: Message Evaluation
 function updateTrustScore(currentScore, message, isQuizPassed = false) {
   let score = currentScore;
+
+  if (typeof message !== "string") return score; // ✅ Safety check added
   const msg = message.toLowerCase();
 
   if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
@@ -41,7 +43,7 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
 
   if (isQuizPassed) return Math.min(score + 10, 100);
 
-  const tokenCount = message.split(" ").length;
+  const tokenCount = msg.split(" ").length;
   const bonus = tokenCount >= 15 ? 3 : 1;
   return Math.min(score + bonus, 100);
 }
