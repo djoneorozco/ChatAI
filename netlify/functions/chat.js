@@ -169,7 +169,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "Nous-Hermes-2-Mistral",
+        model: "nous-hermes-2-mistral",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
