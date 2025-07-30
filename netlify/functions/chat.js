@@ -45,8 +45,8 @@ exports.handler = async (event) => {
       };
     }
 
-    const personaData = fs.readFileSync(personaPath, "utf-8");
-    const systemPrompt = personaData.trim(); // Use raw text (natural language prompt)
+    const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
+    const systemPrompt = personaJson.SystemPrompt;
 
     console.log("🔥 Using System Prompt for:", persona);
 
