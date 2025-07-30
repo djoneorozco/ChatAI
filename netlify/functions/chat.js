@@ -169,7 +169,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "nous-hermes-2-mistral",
+        model: "openchat/openchat-3.5",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
