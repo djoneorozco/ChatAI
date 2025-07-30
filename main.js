@@ -18,7 +18,7 @@ form.addEventListener('submit', async (e) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: userMessage }),
+      body: JSON.stringify({ message: userMessage, persona: "odalys" }),
     });
 
     const data = await response.json();
@@ -27,14 +27,14 @@ form.addEventListener('submit', async (e) => {
     appendMessage('assistant', data.reply || "Hmm… I'm speechless.");
   } catch (err) {
     console.error("❌ Fetch error:", err); // DEBUG
-    appendMessage('assistant', "Oops, something went wrong connecting with Ivy.");
+    appendMessage('assistant', "Oops, something went wrong talking to Odalys.");
   }
 });
 
 function appendMessage(role, text) {
   const msg = document.createElement('div');
   msg.classList.add('message', role);
-  msg.textContent = (role === 'assistant' ? '🧠 Ivy 2.99: ' : '🩷 You: ') + text;
+  msg.textContent = (role === 'assistant' ? '🧠 Odalys: ' : '🩷 You: ') + text;
   chat.appendChild(msg);
   chat.scrollTop = chat.scrollHeight;
 }
