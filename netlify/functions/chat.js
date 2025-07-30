@@ -1,8 +1,9 @@
 const fs = require("fs");
 const path = require("path");
+const { getTrustLevel, addTrustPoints } = require("../trustManager"); // Trust System Import
 
 //#1: Dynamic System Prompt Builder
-function generateSystemPrompt(persona, chatCount = 0) {
+function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
     name,
     mbti,
@@ -22,6 +23,20 @@ function generateSystemPrompt(persona, chatCount = 0) {
     gameplayFeatures,
     gptIntegration,
   } = persona;
+
+  // 🔥 Trust-Level Conditioning Layer
+  let trustLayer = "";
+  if (trustLevel < 3) {
+    trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
+  } else if (trustLevel < 5) {
+    trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
+  } else if (trustLevel < 7) {
+    trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
+  } else if (trustLevel < 9) {
+    trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
+  } else {
+    trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
+  }
 
   return `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
@@ -79,6 +94,8 @@ Side Hustles: ${professionalBackground?.sideHustles}
 Goals: ${goalsAndAspirations?.now}
 5-Year Vision: ${goalsAndAspirations?.fiveYears}
 
+🌡 Trust Level Layer: ${trustLayer}
+
 Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul.
 NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
@@ -124,14 +141,23 @@ exports.handler = async (event) => {
     }
 
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
-    const systemPrompt = generateSystemPrompt(personaJson, chatCount);
 
-    //#3: Image Unlock Logic
+    //#3: Trust Meter Scoring Logic
+    let basePoints = 1;
+    if (message.length > 60 || message.includes("?")) basePoints = 3;
+    if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
+
+    await addTrustPoints(basePoints);
+    const trustLevel = await getTrustLevel();
+
+    const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
+
+    //#4: Image Unlock Logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#4: Fetch from OpenRouter
+    //#5: Fetch from OpenRouter
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -139,7 +165,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "nous-hermes-2-mistral", // or try "mistral", "mythoMax", "openchat"
+        model: "mistralai/mistral-7b-instruct",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
@@ -162,7 +188,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply, imageUnlock }),
+      body: JSON.stringify({ reply, imageUnlock, trustLevel }),
     };
   } catch (err) {
     console.error("Server error:", err);
