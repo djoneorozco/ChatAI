@@ -1,6 +1,8 @@
-const openaiLib = require("openai");
+// /netlify/functions/chat.js
 
-exports.handler = async function (event) {
+import OpenAI from "openai";
+
+export async function handler(event) {
   try {
     if (!event.body) {
       console.error("❌ No input provided in event body.");
@@ -28,16 +30,12 @@ exports.handler = async function (event) {
       };
     }
 
+    console.log("📨 User Message:", message);
     console.log("✅ OPENAI_API_KEY is set. Length:", OPENAI_KEY.length);
 
-    const configuration = new openaiLib.Configuration({
-      apiKey: OPENAI_KEY,
-    });
-    const openai = new openaiLib.OpenAIApi(configuration);
+    const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-    console.log("📨 User Message:", message);
-
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
@@ -52,9 +50,7 @@ exports.handler = async function (event) {
       ],
     });
 
-    console.log("🧠 OpenAI Full Response:", JSON.stringify(completion.data, null, 2));
-
-    const reply = completion?.data?.choices?.[0]?.message?.content;
+    const reply = completion?.choices?.[0]?.message?.content;
 
     if (!reply) {
       console.error("❌ No reply content found in completion response.");
@@ -75,4 +71,4 @@ exports.handler = async function (event) {
       body: JSON.stringify({ error: "Function crashed: " + err.message }),
     };
   }
-};
+}
