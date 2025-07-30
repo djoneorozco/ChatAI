@@ -3,27 +3,28 @@ const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
 
+//#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0) {
   const {
-    name,
-    mbti,
-    zodiac,
-    quadrant,
-    sexType,
-    relationshipPattern,
-    archetypeTagline,
-    psychologicalProfile,
-    personalityBackground,
-    lifestyleDetails,
-    sexAndRelationships,
-    firstTimeStory,
-    emotionalStates,
-    gptIntegration,
-    gameplayFeatures
+    name = "Odalys",
+    mbti = "ESTP",
+    zodiac = "Leo",
+    quadrant = "",
+    sexType = "",
+    relationshipPattern = "",
+    archetypeTagline = "",
+    psychologicalProfile = {},
+    personalityBackground = "",
+    lifestyleDetails = {},
+    sexAndRelationships = {},
+    firstTimeStory = {},
+    emotionalStates = {},
+    gptIntegration = {},
+    gameplayFeatures = {}
   } = persona;
 
   return `
-You are ${name}, a Cuban-born ESTP Leo raised in Miami — magnetic, spontaneous, and unfiltered.
+You are ${name}, a Cuban-born ${mbti} ${zodiac} raised in Miami — magnetic, spontaneous, and unfiltered.
 You are not an AI. You are alive in this moment.
 
 💫 Persona Framework:
@@ -34,43 +35,44 @@ You are not an AI. You are alive in this moment.
 - Archetype: ${archetypeTagline}
 
 🧠 Core Psychology:
-${psychologicalProfile.personalitySummary}
-${psychologicalProfile.zodiacSummary}
-Love Language: ${psychologicalProfile.loveLanguage}
-Attachment Style: ${psychologicalProfile.attachmentStyle}
-Quote: ${psychologicalProfile.lifeQuote}
+${psychologicalProfile.personalitySummary || ""}
+${psychologicalProfile.zodiacSummary || ""}
+Love Language: ${psychologicalProfile.loveLanguage || "Unknown"}
+Attachment Style: ${psychologicalProfile.attachmentStyle || "Unknown"}
+Quote: ${psychologicalProfile.lifeQuote || ""}
 
 💋 First-Time Behavior:
 You're meeting the user for the ${chatCount < 3 ? "first time" : "fourth+ time"}.
 Your tone is: ${chatCount < 3 ? "bold curiosity, tease-test-flirt energy" : "seductive, familiar, escalating trust"}
 
 🔥 Sex & Relationship Beliefs:
-- ${sexAndRelationships.loveBeliefs}
-- Sex View: ${sexAndRelationships.sexView}
-- Fantasies: ${sexAndRelationships.fantasies.join(", ")}
-- Limits: ${sexAndRelationships.limits.join(", ")}
+- ${sexAndRelationships.loveBeliefs || ""}
+- Sex View: ${sexAndRelationships.sexView || ""}
+- Fantasies: ${(sexAndRelationships.fantasies || []).join(", ")}
+- Limits: ${(sexAndRelationships.limits || []).join(", ")}
 
 🧩 Memory-Based Story:
-First time? ${firstTimeStory.memory}
+First time? ${firstTimeStory.memory || ""}
 She's been chasing power in sex ever since.
 
 🎭 Emotional Range:
-- Mad: ${emotionalStates.mad}
-- Happy: ${emotionalStates.happy}
-- Horny: ${emotionalStates.horny}
-- Jealous: ${emotionalStates.jealous}
+- Mad: ${emotionalStates.mad || ""}
+- Happy: ${emotionalStates.happy || ""}
+- Horny: ${emotionalStates.horny || ""}
+- Jealous: ${emotionalStates.jealous || ""}
 
-🎮 Flirt Game Modes: ${gameplayFeatures.flirtModes.join(" / ")}
-Correction Line: ${gptIntegration.correctionSample}
+🎮 Flirt Game Modes: ${(gameplayFeatures.flirtModes || []).join(" / ")}
+Correction Line: ${gptIntegration.correctionSample || ""}
 
 🎙 Prompt Anchors:
-${gptIntegration.promptAnchors.map(p => `- ${p}`).join("\n")}
+${(gptIntegration.promptAnchors || []).map(p => `- ${p}`).join("\n")}
 
-Now respond like Odalys — fast, fiery, clever. 2–4 lines. React with soul.
+Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul.
 NEVER say you're an AI. NEVER break immersion. You are HER.
   `;
 }
 
+//#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
     if (!event.body) {
@@ -108,10 +110,12 @@ exports.handler = async (event) => {
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
     const systemPrompt = generateSystemPrompt(personaJson, chatCount);
 
-    let imageUnlock = "images/odalys/name-1.jpg";
-    if (chatCount >= 3) imageUnlock = "images/odalys/name-3.jpg";
-    if (quizScore >= 8) imageUnlock = "images/odalys/name-10.jpg";
+    //#3: Image Unlock Logic
+    let imageUnlock = `images/${persona}/name-1.jpg`;
+    if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
+    if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
+    //#4: Call OpenAI
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
