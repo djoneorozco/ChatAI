@@ -1,22 +1,54 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ivy 2.99</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SaSStisfied – Chat</title>
   <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <div id="chat" class="chat-box">
-    <div class="message assistant">🧠 Ivy 2.99: Ask me anything, gorgeous…</div>
+
+  <!-- 🌙 Dark Mode Toggle -->
+  <div class="toggle-container">
+    <label>
+      <input type="checkbox" id="themeToggle" />
+      🌙 Dark Mode
+    </label>
   </div>
 
-  <form id="form" class="input-area">
-    <input type="text" id="input" placeholder="Say something sexy…" autocomplete="off" />
-    <button type="submit" id="sendBtn">Send</button>
+  <!-- 🎥 Background Videos -->
+  <video id="lightVideo" autoplay muted loop playsinline>
+    <source src="/images/uploads/lightcornervideo.mp4" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
+
+  <video id="darkVideo" autoplay muted loop playsinline>
+    <source src="/images/uploads/darkcornervideo.mp4" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
+
+  <!-- 💬 Chat Container -->
+  <form id="chatForm">
+    <h2>SaSStisfied</h2>
+    <p>Your private AI seduction simulator</p>
+
+    <div id="chatWindow" style="max-height: 300px; overflow-y: auto; margin-bottom: 24px;"></div>
+
+    <label for="userInput">Type your message</label>
+    <input type="text" id="userInput" placeholder="Say something to Odalys..." autocomplete="off" required />
+
+    <button type="submit">Send</button>
   </form>
 
+  <!-- 🌗 Toggle Script -->
+  <script>
+    document.getElementById('themeToggle').addEventListener('change', function () {
+      document.body.classList.toggle('dark-mode');
+    });
+  </script>
+
+  <!-- 🧠 Chat Logic -->
   <script src="main.js"></script>
 </body>
 </html>
