@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const OpenAI = require("openai");
 
 //#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0) {
@@ -84,7 +85,7 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
 }
 
-//#2: Lambda Chat Handler using OpenRouter
+//#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
     if (!event.body) {
@@ -105,12 +106,12 @@ exports.handler = async (event) => {
       };
     }
 
-    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY) {
-      console.log("Missing OpenRouter API key");
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_KEY) {
+      console.log("Missing OpenAI API key");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Missing OpenRouter API key." }),
+        body: JSON.stringify({ error: "Missing API key." }),
       };
     }
 
@@ -131,34 +132,20 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#4: Fetch from OpenRouter
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "nous-hermes-2-mistral",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        max_tokens: 150
-      })
+    //#4: Call OpenAI
+    const openai = new OpenAI({ apiKey: OPENAI_KEY });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      max_tokens: 150,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
     });
 
-    const data = await response.json();
+    console.log("OpenAI completion:", completion);
 
-    if (!data.choices || !data.choices[0]) {
-      console.error("OpenRouter returned no choices:", data);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "OpenRouter returned no response." }),
-      };
-    }
-
-    const reply = data.choices[0].message.content;
+    const reply = completion?.choices?.[0]?.message?.content || "Sorry, I didn’t catch that.";
 
     return {
       statusCode: 200,
