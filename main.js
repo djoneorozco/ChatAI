@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('chat-form');
-  const input = document.getElementById('user-input');
+  const input = document.getElementById('input');
   const chat = document.getElementById('chat');
 
   form.addEventListener('submit', async (e) => {
@@ -15,15 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message: userMessage })
       });
 
       const data = await response.json();
+      console.log("✅ OpenAI reply received:", data); // DEBUG LOG
+
       appendMessage('assistant', data.reply || 'Hmm… I’m speechless.');
     } catch (err) {
-      console.error('Error:', err);
+      console.error('❌ Fetch error:', err); // DEBUG LOG
       appendMessage('assistant', "Oops, something went wrong connecting with Ivy.");
     }
   });
