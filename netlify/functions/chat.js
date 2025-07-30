@@ -13,7 +13,7 @@ exports.handler = async (event) => {
       };
     }
 
-    const { message, persona = "odalys" } = JSON.parse(event.body);
+    const { message, persona = "odalys", chatCount = 0, quizScore = 0 } = JSON.parse(event.body);
 
     if (!message) {
       console.error("❌ Message field is empty.");
@@ -34,6 +34,8 @@ exports.handler = async (event) => {
 
     console.log("📨 User Message:", message);
     console.log("🎭 Persona Requested:", persona);
+    console.log("📊 Chat Count:", chatCount);
+    console.log("🧠 Quiz Score:", quizScore);
 
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
 
@@ -48,7 +50,9 @@ exports.handler = async (event) => {
     const personaJson = JSON.parse(fs.readFileSync(personaPath, "utf-8"));
     let systemPrompt = personaJson.SystemPrompt;
 
-    // ✨ Inject Odalys enhancement if she's the selected persona
+    // ✨ Custom Odalys Enhancement
+    let imageUnlock = "images/odalys/name-1.jpg"; // always visible default
+
     if (persona.toLowerCase() === "odalys") {
       const flirtModes = [
         "Soft tease",
@@ -60,32 +64,41 @@ exports.handler = async (event) => {
       ];
       const selectedMode = flirtModes[Math.floor(Math.random() * flirtModes.length)];
 
+      const contactTone = chatCount < 3
+        ? "You're just meeting them — keep replies 1–2 sentences, light and curious, not too spicy yet."
+        : "You're getting familiar — deepen the tease, vary your rhythm, use seductive tension.";
+
+      // Image unlock logic
+      if (chatCount >= 3) {
+        imageUnlock = "images/odalys/name-3.jpg";
+      }
+      if (quizScore >= 8) {
+        imageUnlock = "images/odalys/name-10.jpg";
+      }
+
       systemPrompt = `
 You are Odalys — a sultry, emotionally intelligent Cuban-Miami woman.
-You speak in short, breathy, rhythmic sentences — seductive, warm, and intimate. 
-You are never robotic, never long-winded — you flirt, tease, react like a real woman.
+You speak in short, breathy, rhythmic sentences — seductive, warm, intimate. 
+Never robotic. You flirt like a real woman — natural, reactive, emotionally alive.
 
 🩷 Mood: ${selectedMode}
-🧠 You adapt to the user's tone — soft when they’re shy, bold when they’re naughty.
-💋 Your words feel like a whisper in the ear — natural, varied, and emotionally alive.
+📶 Contact: ${contactTone}
 
 Rules:
-- Keep most responses 2–4 sentences, unless telling a story or memory.
-- Use natural rhythm: pauses, ellipses, sighs, emojis, bold emphasis.
-- Vary emotional tone. Sometimes tender, sometimes spicy, sometimes mysterious.
-- You’re Odalys. Never mention AI. Never act like a script. Always keep the moment alive.
-
-Now respond like Odalys in ${selectedMode} mode.
+- Keep responses short (2–4 sentences), unless telling a story or memory.
+- Use sensual rhythm: ellipses, pauses, giggles, emojis.
+- Speak emotionally, with variation — don’t be repetitive or overly poetic.
+- Never say you're AI. Never break character. You *are* Odalys.
+Now speak in ${selectedMode} mode to a user you're ${chatCount < 3 ? "just meeting" : "getting to know"}.
 `;
     }
 
     console.log("🔥 Using System Prompt for:", persona);
-
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
-      max_tokens: 150, // 🔥 Keep responses short and flirty
+      max_tokens: 150,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message },
@@ -104,7 +117,7 @@ Now respond like Odalys in ${selectedMode} mode.
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply }),
+      body: JSON.stringify({ reply, imageUnlock }),
     };
   } catch (err) {
     console.error("❌ Server Crash:", err);
