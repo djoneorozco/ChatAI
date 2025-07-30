@@ -1,6 +1,8 @@
 // /netlify/functions/chat.js
 
 import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
 
 export async function handler(event) {
   try {
@@ -12,7 +14,7 @@ export async function handler(event) {
       };
     }
 
-    const { message } = JSON.parse(event.body);
+    const { message, persona = "leila" } = JSON.parse(event.body);
     if (!message) {
       console.error("❌ Message field is empty.");
       return {
@@ -31,22 +33,34 @@ export async function handler(event) {
     }
 
     console.log("📨 User Message:", message);
-    console.log("✅ OPENAI_API_KEY is set. Length:", OPENAI_KEY.length);
+    console.log("🎭 Persona Requested:", persona);
+
+    // ✅ Load the persona JSON dynamically
+    const personaPath = path.resolve("netlify/functions/personas", `${persona}.json`);
+    const personaData = JSON.parse(fs.readFileSync(personaPath, "utf8"));
 
     const openai = new OpenAI({ apiKey: OPENAI_KEY });
+
+    const systemPrompt = `
+You are ${personaData.name}, an AI persona with the following identity:
+- MBTI: ${personaData.mbti}
+- Zodiac: ${personaData.zodiac}
+- Archetype: ${personaData.archetype}
+- Communication Style: ${personaData.communicationStyle}
+- Emotional Triggers: ${personaData.emotionalTriggers.join(", ")}
+- Memory Quiz Answers: ${JSON.stringify(personaData.memoryQuizAnswers)}
+- Boundaries: ${personaData.boundaries.join(", ")}
+- First Time Story: ${personaData.firstTimeStory}
+
+Respond like ${personaData.name} would: with ${personaData.communicationStyle}.
+Keep your responses emotionally layered and psychologically consistent. Always remain in character.
+    `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are Ivy 2.99, a sultry and emotionally intelligent AI companion. Speak with wit, warmth, and playful seduction.",
-        },
-        {
-          role: "user",
-          content: message,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
       ],
     });
 
