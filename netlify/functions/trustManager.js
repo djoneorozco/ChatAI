@@ -16,7 +16,7 @@ const LEVELS = [
 
 const TRUST_PER_LEVEL = 10;
 
-//#2: Trust Score Engine
+//#2: Trust Level Calculation
 function getTrustLevel(score) {
   const level = Math.min(Math.floor(score / TRUST_PER_LEVEL) + 1, 10);
   return LEVELS[level - 1];
@@ -30,25 +30,29 @@ function getTrustProgress(score) {
   return { level, percent };
 }
 
-//#3: Message Evaluation
+//#3: Message-Based Scoring Engine
 function updateTrustScore(currentScore, message, isQuizPassed = false) {
   let score = currentScore;
 
-  if (typeof message !== "string") return score; // ✅ Safety check added
-  const msg = message.toLowerCase();
+  if (!message || typeof message !== "string") return score;
 
+  const msg = message.toLowerCase().trim();
+
+  // 🚫 Penalties for aggressive or explicit language
   if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
   if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
   if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
 
+  // ✅ Rewards
   if (isQuizPassed) return Math.min(score + 10, 100);
 
-  const tokenCount = msg.split(" ").length;
+  const tokenCount = msg.split(/\s+/).length;
   const bonus = tokenCount >= 15 ? 3 : 1;
+
   return Math.min(score + bonus, 100);
 }
 
-//#4: Add Trust Layer (temporary memory, replace with DB later)
+//#4: In-Memory Trust Score (temporary until DB)
 let currentTrust = 0;
 
 function addTrustPoints(message) {
@@ -59,7 +63,12 @@ function getCurrentTrustScore() {
   return currentTrust;
 }
 
-//#5: Exports
+//#5 (Optional): Future decay feature
+function decayTrust() {
+  currentTrust = Math.max(currentTrust - 1, 0);
+}
+
+//#6: Exports
 module.exports = {
   LEVELS,
   getTrustLevel,
@@ -67,4 +76,5 @@ module.exports = {
   updateTrustScore,
   addTrustPoints,
   getCurrentTrustScore,
+  decayTrust, // Optional
 };
