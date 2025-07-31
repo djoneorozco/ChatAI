@@ -1,122 +1,5 @@
-/* === GLOBAL RESET === */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-/* === DARK MODE TOGGLE POSITION === */
-.toggle-container {
-  position: absolute;
-  top: 20px;
-  right: 24px;
-  font-size: 14px;
-  z-index: 10;
-  color: #000;
-}
-
-body:not(.dark-mode) #darkVideo {
-  display: none;
-}
-
-body.dark-mode #lightVideo {
-  display: none;
-}
-
-/* === BACKGROUND & THEME === */
-body {
-  font-family: 'Inter', sans-serif;
-  background: #d3cfc9;
-  color: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  transition: background 0.4s ease, color 0.4s ease;
-}
-
-/* === DARK MODE STYLING === */
-body.dark-mode {
-  background: #121212;
-  color: #f1f1f1;
-}
-
-body.dark-mode .toggle-container {
-  color: #f1f1f1;
-}
-
-body.dark-mode form {
-  background: linear-gradient(to bottom, #222, #333);
-  color: #fff;
-}
-
-body.dark-mode input,
-body.dark-mode input:focus {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-body.dark-mode button {
-  background: linear-gradient(to right, #ff6a00, #ff2d55);
-}
-
-body.dark-mode button:hover {
-  background: linear-gradient(to right, #ff2d55, #ff6a00);
-  box-shadow: 0 0 20px rgba(255, 106, 0, 0.4);
-}
-
-/* === VIDEO BACKGROUND CORNER === */
-#lightVideo,
-#darkVideo {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  width: 240px;
-  height: auto;
-  z-index: 2;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  opacity: 1;
-  pointer-events: none;
-}
-
-/* === CHAT WRAPPER CENTERED === */
-.chat-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-/* === CENTER HEADER === */
-header {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* === CHAT CARD === */
-form {
-  position: relative;
-  z-index: 3;
-  background: linear-gradient(to bottom, #fff, #e7e4df);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 24px;
-  padding: 42px 32px;
-  max-width: 460px;
-  width: 100%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(18px);
-  overflow: hidden;
-  transition: all 0.4s ease;
-  margin: 0 auto;
-}
-
-form::after {
+/* === BACKGROUND SWIRL === */
+body::before {
   content: "";
   position: absolute;
   top: -40%;
@@ -133,9 +16,27 @@ form::after {
   pointer-events: none;
 }
 
+/* === ODALYS RIGHT-CORNER IMAGE === */
+body::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 350px;
+  height: auto;
+  background-image: url("/images/odalys/name-1.jpg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: bottom right;
+  z-index: 1;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+/* === FORM TEXT LAYERS === */
 form > * {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* === TEXT === */
@@ -233,6 +134,11 @@ button:hover {
     bottom: 12px;
     left: 12px;
   }
+
+  body::after {
+    width: 180px;
+    opacity: 0.1;
+  }
 }
 
 /* === TRUST METER BAR === */
@@ -264,4 +170,13 @@ button:hover {
   font-size: 12px;
   color: #999;
   padding: 0 4px;
+}
+
+/* === TRUST LEVEL HIGHLIGHT === */
+.trust-bar-numbers span.active {
+  color: #ff4d88;
+  font-weight: bold;
+  text-shadow: 0 0 5px #ff4d88;
+  transform: scale(1.2);
+  transition: all 0.3s ease;
 }
