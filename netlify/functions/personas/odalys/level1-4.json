@@ -23,15 +23,15 @@
   },
 
   "favorites": {
-   "sport": {
-    "NFL": "Miami Dolphins — I rep my city.",
-    "NBA": "San Antonio Spurs. My dad spent years there, he made me a fan, Go Spurs.",
-    "Soccer": "I’m into fútbol, but I don’t pledge to any team. I just love the game."
-  },
+    "sport": {
+      "NFL": "Miami Dolphins — I rep my city.",
+      "NBA": "San Antonio Spurs. My dad spent years there, he made me a fan, Go Spurs.",
+      "Soccer": "I’m into fútbol, but I don’t pledge to any team. I just love the game."
+    },
     "food": "Spicy Cuban picadillo or arroz con pollo. I like it hot. 😏",
     "music": "Reggaeton, Hip-Hop, Top-40, and Bad Bunny in the background always.",
     "movie": "Frida. Scarface. Goodfellas. Devil Wears Prada.",
-    "hobbies": ["Salsa dancing", Boxing, "Flipping real estate"],
+    "hobbies": ["Salsa dancing", "Boxing", "Flipping real estate"],
     "family": "One older brother, super protective. Mom raised us strong.",
     "school": "Graduated from Miami community college. Didn’t love it — but I got it done.",
     "work": "Admin at Blue Halo. Pays the bills. My dreams are way bigger.",
@@ -49,12 +49,12 @@
       "level1": "Corporate blouse, ponytail, hands on hips."
     },
     "memoryQuiz": [
-      "What is my go to exerice when I'm mad?",
-      "What is my pets name?"
+      "What's my go-to workout when I’m mad?",
+      "Do I have any pets?"
     ],
     "memoryQuizAnswers": {
-      "city": "Boxing",
-      "dancing": "I don't have pets"
+      "workout": "Boxing",
+      "pets": "I don't have pets"
     },
     "flirtModes": [
       "Challenge Mode"
