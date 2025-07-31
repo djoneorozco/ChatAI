@@ -1,40 +1,40 @@
-const chat = document.getElementById('chat');
-const form = document.getElementById('form');
-const input = document.getElementById('input');
+document.getElementById("sendButton").addEventListener("click", async () => {
+  const input = document.getElementById("userInput");
+  const message = input.value.trim();
+  if (!message) return;
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const userMessage = input.value.trim();
-  if (!userMessage) return;
+  // Show user message in chat
+  const chatBox = document.getElementById("chatBox");
+  const userMessage = document.createElement("p");
+  userMessage.innerHTML = `<strong>You:</strong> ${message}`;
+  chatBox.appendChild(userMessage);
 
-  appendMessage('user', userMessage);
-  input.value = '';
+  input.value = "";
 
-  try {
-    console.log("📤 Attempting to send message:", userMessage); // DEBUG
+  // Fetch current chat count (can be replaced with proper memory logic)
+  const chatCount = document.querySelectorAll("#chatBox p").length;
 
-    const response = await fetch('/.netlify/functions/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ message: userMessage, persona: "odalys" }),
-    });
+  // 🔥 Send to Netlify Function (update with your real path)
+  const res = await fetch("/.netlify/functions/chatHandler", {
+    method: "POST",
+    body: JSON.stringify({
+      message,
+      persona: "odalys",
+      chatCount,
+      quizScore: 0,
+      sessionId: "session-1"
+    }),
+  });
 
-    const data = await response.json();
-    console.log("✅ OpenAI reply received:", data); // DEBUG
+  const data = await res.json();
 
-    appendMessage('assistant', data.reply || "Hmm… I'm speechless.");
-  } catch (err) {
-    console.error("❌ Fetch error:", err); // DEBUG
-    appendMessage('assistant', "Oops, something went wrong talking to Odalys.");
-  }
+  // Append bot reply
+  const botMessage = document.createElement("p");
+  botMessage.innerHTML = `<strong>Odalys:</strong> ${data.reply}`;
+  chatBox.appendChild(botMessage);
+
+  // 🧠 Fix: Trust Bar Update
+  const trust = Math.max(1, Math.min(data.trustLevel || 1, 10)); // Clamp 1–10
+  const bar = document.querySelector(".trust-bar-fill");
+  if (bar) bar.style.width = `${(trust / 10) * 100}%`;
 });
-
-function appendMessage(role, text) {
-  const msg = document.createElement('div');
-  msg.classList.add('message', role);
-  msg.textContent = (role === 'assistant' ? '🧠 Odalys: ' : '🩷 You: ') + text;
-  chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;
-}
