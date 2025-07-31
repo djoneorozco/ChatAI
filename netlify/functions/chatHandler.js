@@ -84,15 +84,38 @@ React with emotional nuance. Always reply as HER. 2–4 lines only.
 //#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
-    if (!event.body) return { statusCode: 400, body: JSON.stringify({ error: "No input provided." }) };
-    const { message, persona = "odalys", chatCount = 0, quizScore = 0, sessionId = "anon" } = JSON.parse(event.body);
+    if (!event.body)
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "No input provided." }),
+      };
 
-    if (!message) return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
+    const {
+      message,
+      persona = "odalys",
+      chatCount = 0,
+      quizScore = 0,
+      sessionId = "anon",
+    } = JSON.parse(event.body);
+
+    if (!message)
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Message is empty." }),
+      };
 
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY) return { statusCode: 500, body: JSON.stringify({ error: "Missing OpenRouter key." }) };
+    if (!OPENROUTER_KEY)
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Missing OpenRouter key." }),
+      };
 
-    if (!/^[a-z0-9-_]+$/i.test(persona)) return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
+    if (!/^[a-z0-9-_]+$/i.test(persona))
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid persona name." }),
+      };
 
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
     const personaData = await fs.readFile(personaPath, "utf-8");
@@ -122,7 +145,7 @@ exports.handler = async (event) => {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -130,7 +153,7 @@ exports.handler = async (event) => {
         messages: [
           { role: "system", content: systemPrompt },
           ...contextHistory,
-          { role: "user", content: message }
+          { role: "user", content: message },
         ],
         max_tokens: 150,
       }),
@@ -146,6 +169,9 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Handler Error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Server Error: " + err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Server Error: " + err.message }),
+    };
   }
 };
