@@ -1,4 +1,4 @@
-//# chatHandler.js (Enhanced with Persona-Aware Trust + 3-Turn Memory + Safer I/O)
+//# chatHandler.js (Enhanced with Persona-Aware Trust + 3-Turn Memory + Safer I/O + Model Switching)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -120,10 +120,12 @@ exports.handler = async (event) => {
       };
 
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY)
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+    if (!OPENROUTER_KEY || !OPENAI_KEY)
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Missing OpenRouter key." }),
+        body: JSON.stringify({ error: "Missing API key(s)." }),
       };
 
     if (!/^[a-z0-9-_]+$/i.test(persona))
@@ -156,22 +158,44 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#6: API Request
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
+    //#6: Model Switching Based on Trust Level
+    let apiUrl, headers, bodyPayload;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...contextHistory,
+      { role: "user", content: message },
+    ];
+
+    if (trustLevel <= 2) {
+      apiUrl = "https://api.openai.com/v1/chat/completions";
+      headers = {
+        Authorization: `Bearer ${OPENAI_KEY}`,
+        "Content-Type": "application/json",
+      };
+      bodyPayload = {
+        model: "gpt-4-1106-preview",
+        messages,
+        max_tokens: 150,
+      };
+    } else {
+      apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+      headers = {
         Authorization: `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      };
+      bodyPayload = {
         model: "gryphe/mythomax-l2-13b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...contextHistory,
-          { role: "user", content: message },
-        ],
+        messages,
         max_tokens: 150,
-      }),
+      };
+    }
+
+    //#7: API Request
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(bodyPayload),
     });
 
     const data = await response.json();
