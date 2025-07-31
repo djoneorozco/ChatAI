@@ -47,7 +47,19 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
   if (isQuizPassed) return Math.min(score + 10, 100);
 
   const tokenCount = msg.split(/\s+/).length;
-  const bonus = tokenCount >= 15 ? 3 : 1;
+
+  // 🌟 Trust Trigger Keywords
+  const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
+  const keywordMatches = (msg.match(hobbySignals) || []).length;
+
+  let bonus = 0;
+  if (keywordMatches >= 4) {
+    bonus = 5;
+  } else if (keywordMatches >= 2) {
+    bonus = 3;
+  } else {
+    bonus = tokenCount >= 15 ? 2 : 1;
+  }
 
   return Math.min(score + bonus, 100);
 }
@@ -63,7 +75,7 @@ function getCurrentTrustScore() {
   return currentTrust;
 }
 
-//#5 (Optional): Future decay feature
+//#5: Optional Decay Feature
 function decayTrust() {
   currentTrust = Math.max(currentTrust - 1, 0);
 }
@@ -76,5 +88,5 @@ module.exports = {
   updateTrustScore,
   addTrustPoints,
   getCurrentTrustScore,
-  decayTrust, // Optional
+  decayTrust,
 };
