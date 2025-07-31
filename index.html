@@ -7,126 +7,39 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
+    /* === GLOBAL === */
     body {
-      margin: 0;
       font-family: 'Inter', sans-serif;
-      background: #f6f2ef;
-      position: relative;
-      min-height: 100vh;
-      overflow-x: hidden;
+      margin: 0;
+      background: #f7f5f2;
+      color: #222;
+      transition: background 0.4s ease;
     }
 
-    body::after {
-      content: "";
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 400px;
-      height: auto;
-      background-image: url("/images/odalys/name-1.jpg");
-      background-repeat: no-repeat;
-      background-size: contain;
-      background-position: bottom right;
-      opacity: 0.08;
-      z-index: 0;
-      pointer-events: none;
+    body.dark-mode {
+      background: #121212;
+      color: #f0f0f0;
     }
 
     .chat-wrapper {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 40px 20px 140px; /* Increased bottom spacing */
       position: relative;
-      z-index: 2;
+      max-width: 960px;
+      margin: 40px auto;
+      padding: 0 20px;
     }
 
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
-    h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #222;
-    }
-
-    .toggle-container {
-      font-size: 14px;
-    }
-
+    /* === TRUST METER === */
     #trustMeterContainer {
-      margin-bottom: 14px;
-    }
-
-    .chat-window {
-      background: rgba(0, 0, 0, 0.04);
-      border-radius: 12px;
-      padding: 20px;
-      height: 440px; /* Increased height */
-      overflow-y: auto;
-      margin-bottom: 20px;
-      box-shadow: inset 0 0 4px rgba(0,0,0,0.05);
-    }
-
-    .message {
-      margin-bottom: 14px;
-    }
-
-    .bubble {
-      display: inline-block;
-      background: #fff;
-      border-radius: 14px;
-      padding: 12px 14px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-      max-width: 100%;
-    }
-
-    .message.user .bubble {
-      background: #e8e6ff;
-    }
-
-    .message.ai .bubble {
-      background: #fff9f9;
-    }
-
-    .input-area {
-      position: fixed;
-      bottom: 24px;
-      left: 0;
-      width: 100%;
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 0 20px;
-      display: flex;
-      gap: 12px;
-      z-index: 10;
-    }
-
-    .input-area input[type="text"] {
-      flex: 1;
-      padding: 14px;
-      border-radius: 24px;
-      border: 1px solid #ccc;
-      font-size: 15px;
-    }
-
-    .input-area button {
-      padding: 14px 24px;
-      border-radius: 24px;
-      background: linear-gradient(to right, #9a6aff, #4b00ff);
-      color: #fff;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      font-size: 15px;
-    }
-
-    .input-area button:hover {
-      background: linear-gradient(to right, #4b00ff, #9a6aff);
-      box-shadow: 0 0 14px rgba(154, 106, 255, 0.4);
+      margin: 12px auto;
+      text-align: center;
+      max-width: 600px;
     }
 
     #trustMeter {
@@ -140,8 +53,7 @@
     #trustProgress {
       height: 100%;
       width: 0%;
-      background: linear-gradient(to right, #ff4e50, #ff6b81);
-      border-radius: 20px;
+      background: linear-gradient(to right, #9a6aff, #ff2d55, #ff4e50, #e10000);
       transition: width 0.4s ease;
     }
 
@@ -153,19 +65,105 @@
       padding: 0 4px;
     }
 
+    /* === CHAT === */
+    .chat-window {
+      background: rgba(0, 0, 0, 0.03);
+      padding: 18px;
+      border-radius: 16px;
+      height: 480px;
+      overflow-y: auto;
+      font-size: 14px;
+      margin-top: 20px;
+      backdrop-filter: blur(6px);
+    }
+
+    .message {
+      margin-bottom: 12px;
+    }
+
+    .bubble {
+      display: inline-block;
+      background: #fff;
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    body.dark-mode .chat-window {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    body.dark-mode .bubble {
+      background: rgba(255, 255, 255, 0.08);
+      color: #eee;
+    }
+
+    /* === FORM === */
+    .input-area {
+      margin-top: 30px;
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+
+    button {
+      padding: 14px;
+      background: linear-gradient(to right, #9a6aff, #4b00ff);
+      border: none;
+      border-radius: 30px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: linear-gradient(to right, #4b00ff, #9a6aff);
+      box-shadow: 0 0 20px rgba(154, 106, 255, 0.3);
+    }
+
+    /* === BACKGROUND ODALYS IMAGE === */
+    .odalys-bg {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 320px;
+      max-height: 95vh;
+      object-fit: cover;
+      opacity: 0.12;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    body.dark-mode .odalys-bg {
+      opacity: 0.07;
+    }
+
+    /* === TOGGLE === */
+    .toggle-container {
+      font-size: 13px;
+      user-select: none;
+    }
+
     @media (max-width: 600px) {
-      .chat-wrapper {
-        padding-bottom: 160px;
+      .odalys-bg {
+        width: 180px;
+        opacity: 0.08;
       }
 
-      .input-area {
-        padding: 0 10px;
-        gap: 8px;
-      }
-
-      body::after {
-        width: 200px;
-        opacity: 0.12;
+      .chat-window {
+        height: 360px;
       }
     }
   </style>
@@ -180,7 +178,7 @@
       </label>
     </header>
 
-    <!-- Trust Bar -->
+    <!-- Trust Meter -->
     <div id="trustMeterContainer">
       <div id="trustMeter">
         <div id="trustProgress"></div>
@@ -191,9 +189,7 @@
     </div>
 
     <!-- Chat Window -->
-    <div id="chatWindow" class="chat-window">
-      <!-- Messages will appear here -->
-    </div>
+    <div id="chatWindow" class="chat-window"></div>
 
     <!-- Input -->
     <form id="chatForm" class="input-area">
@@ -202,19 +198,28 @@
     </form>
   </div>
 
-  <script>
-    document.getElementById('themeToggle').addEventListener('change', () => {
-      document.body.classList.toggle('dark-mode');
-    });
+  <!-- Odalys Background Image -->
+  <img id="odalysImage" class="odalys-bg" src="images/odalys/name-1.jpg" alt="Odalys Background" />
 
+  <script>
     const chatWindow = document.getElementById('chatWindow');
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
     const trustProgress = document.getElementById('trustProgress');
+    const odalysImage = document.getElementById('odalysImage');
 
+    // Load trust
     let trustLevel = parseInt(localStorage.getItem('trustLevel')) || 1;
     updateTrustBar();
+    updateOdalysImage();
 
+    // Dark mode
+    const toggle = document.getElementById('themeToggle');
+    toggle.addEventListener('change', () => {
+      document.body.classList.toggle('dark-mode');
+    });
+
+    // Submit message
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -236,14 +241,13 @@
         });
 
         const data = await res.json();
-        if (data.reply) {
-          appendMessage('Odalys', data.reply, 'ai');
-        }
+        if (data.reply) appendMessage('Odalys', data.reply, 'ai');
 
         if (data.trustLevel) {
           trustLevel = parseInt(data.trustLevel);
           localStorage.setItem('trustLevel', trustLevel);
           updateTrustBar();
+          updateOdalysImage();
         }
       } catch (err) {
         appendMessage('Odalys', 'Oops, I’m having a moment... try again soon 💔', 'ai');
@@ -260,8 +264,12 @@
     }
 
     function updateTrustBar() {
-      const widthPercent = (trustLevel / 10) * 100;
-      trustProgress.style.width = widthPercent + '%';
+      trustProgress.style.width = `${(trustLevel / 10) * 100}%`;
+    }
+
+    function updateOdalysImage() {
+      const clamped = Math.max(1, Math.min(10, trustLevel));
+      odalysImage.src = `images/odalys/name-${clamped}.jpg`;
     }
   </script>
 </body>
