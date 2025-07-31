@@ -25,10 +25,9 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     professionalBackground,
     goalsAndAspirations,
     sexAndRelationships,
-    firstTimeStory,
     emotionalStates,
     gameplayFeatures,
-    gptIntegration,
+    gptIntegration
   } = persona;
 
   let trustLayer = "";
@@ -72,10 +71,6 @@ Your tone is: ${chatCount < 3 ? "bold curiosity, tease-test-flirt energy" : "sed
 - Fantasies: ${(sexAndRelationships?.fantasies || []).join(", ")}
 - Limits: ${(sexAndRelationships?.limits || []).join(", ")}
 
-🧩 Memory-Based Story:
-First time? ${firstTimeStory?.memory}
-She's been chasing power in sex ever since.
-
 🎭 Emotional Range:
 - Mad: ${emotionalStates?.mad}
 - Happy: ${emotionalStates?.happy}
@@ -110,46 +105,66 @@ NEVER say you're an AI. NEVER break immersion. You are HER.
 //#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
-    if (!event.body) return { statusCode: 400, body: JSON.stringify({ error: "No input provided." }) };
-    const { message, persona = "odalys", chatCount = 0, quizScore = 0, sessionId = "anon" } = JSON.parse(event.body);
+    if (!event.body)
+      return { statusCode: 400, body: JSON.stringify({ error: "No input provided." }) };
 
-    if (!message) return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
+    const {
+      message,
+      persona = "odalys",
+      chatCount = 0,
+      quizScore = 0,
+      sessionId = "anon"
+    } = JSON.parse(event.body);
+
+    if (!message)
+      return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
 
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY) return { statusCode: 500, body: JSON.stringify({ error: "Missing OpenRouter key." }) };
+    if (!OPENROUTER_KEY)
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing OpenRouter key." }) };
 
-    if (!/^[a-z0-9-_]+$/i.test(persona)) return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
+    if (!/^[a-z0-9-_]+$/i.test(persona))
+      return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    const personaPath = path.join(__dirname, "personas", `${persona}.json`);
+    //#3: Load Trust-Based Persona JSON
+    const trustLevel = await getTrustLevel(persona);
+
+    let personaFile = "level1-4.json";
+    if (trustLevel >= 5 && trustLevel < 8) {
+      personaFile = "level5-7.json";
+    } else if (trustLevel >= 8) {
+      personaFile = "level8-10.json";
+    }
+
+    const personaPath = path.join(__dirname, "personas", persona, personaFile);
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
 
-    //#3: Trust Points Calculation
+    //#4: Trust Points Calculation
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
 
     await addTrustPoints(basePoints, persona);
-    const trustLevel = await getTrustLevel(persona);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#4: Message Context Memory (basic session memory)
+    //#5: Message Context Memory
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic
+    //#6: Image Unlock Logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#6: API Request
+    //#7: API Request
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "gryphe/mythomax-l2-13b",
@@ -158,8 +173,8 @@ exports.handler = async (event) => {
           ...contextHistory,
           { role: "user", content: message }
         ],
-        max_tokens: 150,
-      }),
+        max_tokens: 150
+      })
     });
 
     const data = await response.json();
@@ -168,10 +183,13 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply, imageUnlock, trustLevel }),
+      body: JSON.stringify({ reply, imageUnlock, trustLevel })
     };
   } catch (err) {
     console.error("Handler Error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Server Error: " + err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Server Error: " + err.message })
+    };
   }
 };
