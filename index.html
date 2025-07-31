@@ -17,7 +17,7 @@
       </label>
     </header>
 
-    <!-- //# Trust Meter Bar -->
+    <!-- Trust Meter -->
     <div id="trustMeterContainer">
       <div id="trustMeter">
         <div id="trustProgress"></div>
@@ -27,35 +27,37 @@
       </div>
     </div>
 
-    <!-- //# Chat Window -->
-    <div id="chatWindow" class="chat-window">
-      <!-- Messages appear here -->
-    </div>
+    <!-- Chat Window -->
+    <div id="chatWindow" class="chat-window"></div>
 
-    <!-- //# Input Area -->
+    <!-- Input Area -->
     <form id="chatForm" class="input-area">
       <input type="text" id="userInput" placeholder="Say something to Odalys..." autocomplete="off" required />
       <button type="submit">Send</button>
     </form>
   </div>
 
-  <!-- //# JavaScript Logic -->
-  <script>
-    // 🌙 Theme Toggle
-    document.getElementById('themeToggle').addEventListener('change', () => {
-      document.body.classList.toggle('dark-mode');
-    });
+  <!-- Odalys Background -->
+  <img id="odalysImage" class="odalys-bg" src="images/odalys/name-1.jpg" alt="Odalys Background" />
 
+  <script>
     const chatWindow = document.getElementById('chatWindow');
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
     const trustProgress = document.getElementById('trustProgress');
+    const odalysImage = document.getElementById('odalysImage');
 
-    // 💋 Load trust from storage or start at 1
+    // Load trust
     let trustLevel = parseInt(localStorage.getItem('trustLevel')) || 1;
     updateTrustBar();
+    updateOdalysImage();
 
-    // 📨 Submit Message
+    // Dark mode
+    document.getElementById('themeToggle').addEventListener('change', () => {
+      document.body.classList.toggle('dark-mode');
+    });
+
+    // Submit message
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -77,15 +79,13 @@
         });
 
         const data = await res.json();
-        if (data.reply) {
-          appendMessage('Odalys', data.reply, 'ai');
-        }
+        if (data.reply) appendMessage('Odalys', data.reply, 'ai');
 
-        // 💋 Sync Trust from API
         if (data.trustLevel) {
           trustLevel = parseInt(data.trustLevel);
           localStorage.setItem('trustLevel', trustLevel);
           updateTrustBar();
+          updateOdalysImage();
         }
       } catch (err) {
         appendMessage('Odalys', 'Oops, I’m having a moment... try again soon 💔', 'ai');
@@ -93,7 +93,6 @@
       }
     });
 
-    // 💬 Add Message to Chat Window
     function appendMessage(sender, text, role) {
       const msg = document.createElement('div');
       msg.className = `message ${role}`;
@@ -102,14 +101,13 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    // 🔥 Trust Logic
     function updateTrustBar() {
-      const widthPercent = (trustLevel / 10) * 100;
-      trustProgress.style.width = widthPercent + '%';
-      trustProgress.style.background = 'linear-gradient(to right, #ff4e50, #ff6b81)';
-      trustProgress.style.height = '100%';
-      trustProgress.style.borderRadius = '20px';
-      trustProgress.style.transition = 'width 0.5s ease-in-out';
+      trustProgress.style.width = `${(trustLevel / 10) * 100}%`;
+    }
+
+    function updateOdalysImage() {
+      const clamped = Math.max(1, Math.min(10, trustLevel));
+      odalysImage.src = `images/odalys/name-${clamped}.jpg`;
     }
   </script>
 </body>
