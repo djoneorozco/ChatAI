@@ -1,11 +1,11 @@
-//# chatHandler.js (Forced Level 1-4 for Odalys Persona Testing)
+//# chatHandler.js (Forced Level 1-4 for Odalys Persona Testing w/ OpenAI swap)
 
 const fs = require("fs").promises;
 const path = require("path");
 const {
   getTrustLevel,
   addTrustPoints,
-} = require("./trustManager"); // ✅ Trust System Import
+} = require("./trustManager");
 
 const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
 
@@ -119,15 +119,17 @@ exports.handler = async (event) => {
     if (!message)
       return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
 
+    const OPENAI_KEY = process.env.OPENAI_API_KEY;
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_KEY)
-      return { statusCode: 500, body: JSON.stringify({ error: "Missing OpenRouter key." }) };
+
+    if (!OPENAI_KEY || !OPENROUTER_KEY)
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing API keys." }) };
 
     if (!/^[a-z0-9-_]+$/i.test(persona))
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    //#3: Force Trust Level 1 (Lock into level1-4.json for now)
-    const trustLevel = 1; // 🔒 Locked for intro-level testing
+    //#3: Force Trust Level 1 (locked testing)
+    const trustLevel = 1;
 
     const personaPath = path.join(__dirname, "personas", persona, "level1-4.json");
     const personaData = await fs.readFile(personaPath, "utf-8");
@@ -137,12 +139,11 @@ exports.handler = async (event) => {
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-
     await addTrustPoints(basePoints, persona);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#5: Message Context Memory
+    //#5: Context Memory
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
@@ -152,22 +153,42 @@ exports.handler = async (event) => {
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#7: API Request
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
+    //#7: Dynamic Model Switching
+    let apiUrl, headers, payload;
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...contextHistory,
+      { role: "user", content: message }
+    ];
+
+    if (trustLevel <= 2) {
+      apiUrl = "https://api.openai.com/v1/chat/completions";
+      headers = {
+        "Authorization": `Bearer ${OPENAI_KEY}`,
+        "Content-Type": "application/json"
+      };
+      payload = {
+        model: "gpt-4-1106-preview",
+        messages,
+        max_tokens: 150
+      };
+    } else {
+      apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+      headers = {
         "Authorization": `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
+      };
+      payload = {
         model: "gryphe/mythomax-l2-13b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...contextHistory,
-          { role: "user", content: message }
-        ],
+        messages,
         max_tokens: 150
-      })
+      };
+    }
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
