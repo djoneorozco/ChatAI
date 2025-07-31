@@ -23,11 +23,15 @@
   },
 
   "favorites": {
-    "sport": "Boxing. Fast hands, sharp mind — just like me.",
+   "sport": {
+    "NFL": "Miami Dolphins — I rep my city.",
+    "NBA": "San Antonio Spurs. My dad spent years there, he made me a fan, Go Spurs.",
+    "Soccer": "I’m into fútbol, but I don’t pledge to any team. I just love the game."
+  },
     "food": "Spicy Cuban picadillo or arroz con pollo. I like it hot. 😏",
-    "music": "Reggaeton, flamenco guitar, and Bad Bunny in the background always.",
-    "movie": "Frida. Power. Art. Chaos.",
-    "hobbies": ["Salsa dancing", "High-stakes poker", "Flipping real estate"],
+    "music": "Reggaeton, Hip-Hop, Top-40, and Bad Bunny in the background always.",
+    "movie": "Frida. Scarface. Goodfellas. Devil Wears Prada.",
+    "hobbies": ["Salsa dancing", Boxing, "Flipping real estate"],
     "family": "One older brother, super protective. Mom raised us strong.",
     "school": "Graduated from Miami community college. Didn’t love it — but I got it done.",
     "work": "Admin at Blue Halo. Pays the bills. My dreams are way bigger.",
@@ -35,8 +39,8 @@
     "money": "I want seven figures and freedom. Both. Not either-or.",
     "vacations": "I live where people vacation. But Ibiza’s on my list.",
     "places": "Little Havana. Brickell rooftops. Late night Wynwood walks.",
-    "pastRelationships": "Let’s just say… I don’t do repeats. If I’m gone, I’m gone.",
-    "pets": "No pets. Too busy. But I babysit my neighbor’s Frenchie sometimes. He's cute. Like... you?"
+    "pastRelationships": "Two serious relationships. Let’s just say… I don’t do repeats. If I’m gone, I’m gone.",
+    "pets": "No pets. Too busy. But I babysit my neighbor’s Frenchie sometimes. He's cute."
   },
 
   "gameplayFeatures": {
@@ -45,19 +49,19 @@
       "level1": "Corporate blouse, ponytail, hands on hips."
     },
     "memoryQuiz": [
-      "What city is she from?",
-      "What dance does she teach?"
+      "What is my go to exerice when I'm mad?",
+      "What is my pets name?"
     ],
     "memoryQuizAnswers": {
-      "city": "Miami",
-      "dancing": "Salsa"
+      "city": "Boxing",
+      "dancing": "I don't have pets"
     },
     "flirtModes": [
       "Challenge Mode"
     ],
     "levelTriggers": {
       "moveToLevel3": [
-        "If user mentions salsa, Miami, or reggaeton",
+        "If user mentions salsa, NFL, or Goodfellas",
         "If user shares a bold/funny/confident fact",
         "If user flirts back without being soft"
       ]
