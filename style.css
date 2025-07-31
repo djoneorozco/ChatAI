@@ -1,122 +1,19 @@
-/* === GLOBAL RESET === */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-/* === DARK MODE TOGGLE POSITION === */
-.toggle-container {
-  position: absolute;
-  top: 20px;
-  right: 24px;
-  font-size: 14px;
-  z-index: 10;
-  color: #000;
-}
-
-body:not(.dark-mode) #darkVideo {
-  display: none;
-}
-
-body.dark-mode #lightVideo {
-  display: none;
-}
-
-/* === BACKGROUND & THEME === */
 body {
   font-family: 'Inter', sans-serif;
-  background: #d3cfc9;
-  color: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  transition: background 0.4s ease, color 0.4s ease;
-}
-
-/* === DARK MODE STYLING === */
-body.dark-mode {
-  background: #121212;
-  color: #f1f1f1;
-}
-
-body.dark-mode .toggle-container {
-  color: #f1f1f1;
-}
-
-body.dark-mode form {
-  background: linear-gradient(to bottom, #222, #333);
-  color: #fff;
-}
-
-body.dark-mode input,
-body.dark-mode input:focus {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-body.dark-mode button {
-  background: linear-gradient(to right, #ff6a00, #ff2d55);
-}
-
-body.dark-mode button:hover {
-  background: linear-gradient(to right, #ff2d55, #ff6a00);
-  box-shadow: 0 0 20px rgba(255, 106, 0, 0.4);
-}
-
-/* === VIDEO BACKGROUND CORNER === */
-#lightVideo,
-#darkVideo {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  width: 240px;
-  height: auto;
-  z-index: 2;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  opacity: 1;
-  pointer-events: none;
-}
-
-/* === CHAT WRAPPER CENTERED === */
-.chat-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-/* === CENTER HEADER === */
-header {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* === CHAT CARD === */
-form {
+  margin: 0;
+  background: #f9f7fb;
+  color: #222;
+  transition: background 0.4s ease;
   position: relative;
-  z-index: 3;
-  background: linear-gradient(to bottom, #fff, #e7e4df);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 24px;
-  padding: 42px 32px;
-  max-width: 460px;
-  width: 100%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(18px);
-  overflow: hidden;
-  transition: all 0.4s ease;
-  margin: 0 auto;
 }
 
-form::after {
+body.dark-mode {
+  background: #111;
+  color: #f0f0f0;
+}
+
+/* === BACKGROUND SWIRL === */
+body::before {
   content: "";
   position: absolute;
   top: -40%;
@@ -133,114 +30,43 @@ form::after {
   pointer-events: none;
 }
 
-form > * {
-  position: relative;
+/* === Odalys Image === */
+.odalys-bg {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 340px;
+  object-fit: cover;
+  opacity: 0.12;
+  pointer-events: none;
   z-index: 1;
 }
 
-/* === TEXT === */
-form h2 {
-  text-align: center;
-  font-size: 28px;
-  font-weight: 700;
+body.dark-mode .odalys-bg {
+  opacity: 0.07;
+}
+
+/* === Chat Container === */
+.chat-wrapper {
+  position: relative;
+  max-width: 1040px;
+  margin: 40px auto;
+  padding: 0 20px;
+  z-index: 2;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 10px;
 }
 
-form p {
-  text-align: center;
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 28px;
-}
-
-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #222;
-  display: block;
-  margin-bottom: 6px;
-}
-
-/* === INPUT === */
-input[type="text"] {
-  width: 100%;
-  padding: 12px 14px;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  font-size: 14px;
-  color: #000;
-  margin-bottom: 20px;
-  transition: all 0.25s ease;
-}
-
-input[type="text"]:focus {
-  background: rgba(0, 0, 0, 0.07);
-  border-color: #9a6aff;
-  outline: none;
-}
-
-/* === BUTTON === */
-button {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(to right, #9a6aff, #4b00ff);
-  border: none;
-  border-radius: 30px;
-  color: #fff;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 10px;
-}
-
-button:hover {
-  background: linear-gradient(to right, #4b00ff, #9a6aff);
-  box-shadow: 0 0 20px rgba(154, 106, 255, 0.3);
-}
-
-/* === CHAT WINDOW === */
-#chatWindow {
-  background: rgba(0,0,0,0.03);
-  padding: 14px;
-  border-radius: 12px;
-  height: 300px;
-  overflow-y: auto;
-  font-size: 14px;
-  color: #333;
-}
-
-/* === ANIMATIONS === */
-@keyframes swirlBG {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* === MOBILE === */
-@media (max-width: 600px) {
-  form {
-    padding: 32px 20px;
-  }
-
-  #lightVideo,
-  #darkVideo {
-    width: 100px;
-    bottom: 12px;
-    left: 12px;
-  }
-}
-
-/* === TRUST METER BAR === */
+/* === Trust Bar === */
 #trustMeterContainer {
   margin: 12px auto;
   text-align: center;
-  max-width: 460px;
-  width: 100%;
+  max-width: 600px;
 }
 
 #trustMeter {
@@ -254,7 +80,7 @@ button:hover {
 #trustProgress {
   height: 100%;
   width: 0%;
-  background: linear-gradient(to right, #9a6aff, #ff2d55, #ff4e50, #e10000);
+  background: linear-gradient(to right, #ff4e80, #e100ff, #9a6aff);
   transition: width 0.4s ease;
 }
 
@@ -264,4 +90,105 @@ button:hover {
   font-size: 12px;
   color: #999;
   padding: 0 4px;
+}
+
+/* === Chat Window === */
+.chat-window {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 24px;
+  height: 540px;
+  overflow-y: auto;
+  backdrop-filter: blur(14px);
+  font-size: 15px;
+  margin-top: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.dark-mode .chat-window {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* === Messages === */
+.message {
+  margin-bottom: 16px;
+}
+
+.bubble {
+  display: inline-block;
+  background: #fff;
+  padding: 12px 16px;
+  border-radius: 18px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+}
+
+body.dark-mode .bubble {
+  background: rgba(255, 255, 255, 0.08);
+  color: #eee;
+}
+
+/* === Input Area === */
+.input-area {
+  margin-top: 24px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 24px;
+  padding: 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+input[type="text"] {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+button {
+  padding: 14px;
+  background: linear-gradient(to right, #ff4d9d, #c243ff);
+  border: none;
+  border-radius: 30px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(255, 77, 157, 0.35);
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: linear-gradient(to right, #c243ff, #ff4d9d);
+}
+
+/* === Toggle === */
+.toggle-container {
+  font-size: 13px;
+  user-select: none;
+}
+
+/* === Animations === */
+@keyframes swirlBG {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === Mobile === */
+@media (max-width: 600px) {
+  .odalys-bg {
+    width: 180px;
+    opacity: 0.08;
+  }
+
+  .chat-window {
+    height: 400px;
+  }
 }
