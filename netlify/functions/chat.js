@@ -1,11 +1,11 @@
-//# chatHandler.js (Enhanced with Persona-Aware Trust + 3-Turn Memory + Safer I/O)
+//# chatHandler.js (Forced Level 1-4 for Odalys Persona Testing)
 
 const fs = require("fs").promises;
 const path = require("path");
 const {
   getTrustLevel,
   addTrustPoints,
-} = require("./trustManager"); // Updated for persona-aware trust
+} = require("./trustManager"); // ✅ Trust System Import
 
 const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
 
@@ -126,17 +126,10 @@ exports.handler = async (event) => {
     if (!/^[a-z0-9-_]+$/i.test(persona))
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    //#3: Load Trust-Based Persona JSON
-    const trustLevel = await getTrustLevel(persona);
+    //#3: Force Trust Level 1 (Lock into level1-4.json for now)
+    const trustLevel = 1; // 🔒 Locked for intro-level testing
 
-    let personaFile = "level1-4.json";
-    if (trustLevel >= 5 && trustLevel < 8) {
-      personaFile = "level5-7.json";
-    } else if (trustLevel >= 8) {
-      personaFile = "level8-10.json";
-    }
-
-    const personaPath = path.join(__dirname, "personas", persona, personaFile);
+    const personaPath = path.join(__dirname, "personas", persona, "level1-4.json");
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
 
