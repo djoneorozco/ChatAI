@@ -79,7 +79,13 @@
         const data = await res.json();
         if (data.reply) {
           appendMessage('Odalys', data.reply, 'ai');
-          increaseTrust(); // 💋 Bump trust
+        }
+
+        // 💋 Sync Trust from API
+        if (data.trustLevel) {
+          trustLevel = parseInt(data.trustLevel);
+          localStorage.setItem('trustLevel', trustLevel);
+          updateTrustBar();
         }
       } catch (err) {
         appendMessage('Odalys', 'Oops, I’m having a moment... try again soon 💔', 'ai');
@@ -97,14 +103,6 @@
     }
 
     // 🔥 Trust Logic
-    function increaseTrust() {
-      if (trustLevel < 10) {
-        trustLevel++;
-        localStorage.setItem('trustLevel', trustLevel);
-        updateTrustBar();
-      }
-    }
-
     function updateTrustBar() {
       const widthPercent = (trustLevel / 10) * 100;
       trustProgress.style.width = widthPercent + '%';
