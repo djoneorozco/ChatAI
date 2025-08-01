@@ -5,7 +5,7 @@ document.getElementById("sendButton").addEventListener("click", async () => {
   const message = input.value.trim();
   if (!message) return;
 
-  // Show user message in chat
+  // Show user message
   const chatBox = document.getElementById("chatBox");
   const userMessage = document.createElement("p");
   userMessage.innerHTML = `<strong>You:</strong> ${message}`;
@@ -13,10 +13,10 @@ document.getElementById("sendButton").addEventListener("click", async () => {
 
   input.value = "";
 
-  // Count messages for basic memory logic
+  // Count messages
   const chatCount = document.querySelectorAll("#chatBox p").length;
 
-  // 🔥 Send request to Netlify Function
+  // 🔥 Send to server
   const res = await fetch("/.netlify/functions/chatHandler", {
     method: "POST",
     body: JSON.stringify({
@@ -30,29 +30,29 @@ document.getElementById("sendButton").addEventListener("click", async () => {
 
   const data = await res.json();
 
-  // Show AI reply
+  // Show bot reply
   const botMessage = document.createElement("p");
   botMessage.innerHTML = `<strong>Odalys:</strong> ${data.reply}`;
   chatBox.appendChild(botMessage);
 
-  // 🧠 Update trust bar and numbers
+  // 🎯 Update trust bar
   const trust = Math.max(1, Math.min(data.trustLevel || 1, 10));
   updateTrustMeter(trust);
 
-  // 🖼️ Show unlocked image (if any)
+  // 💋 Update image based on unlock path
   if (data.imageUnlock) {
-    const img = document.createElement("img");
-    img.src = data.imageUnlock;
-    img.alt = "Odalys Background";
-    img.classList.add("unlocked-image");
-    chatBox.appendChild(img);
+    const imgEl = document.getElementById("unlockedImage");
+    if (imgEl) {
+      imgEl.src = data.imageUnlock;
+      imgEl.alt = `Unlocked Image for Trust Level ${trust}`;
+    }
   }
 
-  // 🔍 Optional debug log
+  // Optional debug
   console.log("📶 Current Trust Level:", trust);
 });
 
-//# Trust Meter Logic
+//# Trust Bar Update
 function updateTrustMeter(trust) {
   const bar = document.querySelector(".trust-bar-fill");
   if (bar) bar.style.width = `${(trust / 10) * 100}%`;
