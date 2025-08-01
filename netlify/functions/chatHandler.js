@@ -143,6 +143,9 @@ exports.handler = async (event) => {
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
 
+    // ✅ Passphrase bonus
+    if (/deepthroat/i.test(message)) basePoints += 1;
+
     await addTrustPoints(basePoints, persona);
     const trustLevel = await getTrustLevel(persona);
 
@@ -153,10 +156,10 @@ exports.handler = async (event) => {
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic
-    let imageUnlock = `images/${persona}/name-1.jpg`;
-    if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
-    if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
+    //#5: Image Unlock Logic — now using correct file path
+    let imageUnlock = `images/${persona}-1.jpg`;
+    if (chatCount >= 3) imageUnlock = `images/${persona}-3.jpg`;
+    if (quizScore >= 8) imageUnlock = `images/${persona}-10.jpg`;
 
     //#6: Model Switching Based on Trust Level
     let apiUrl, headers, bodyPayload;
