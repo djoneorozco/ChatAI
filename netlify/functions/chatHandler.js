@@ -25,9 +25,7 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
 
   switch (trustLevel) {
     case 1:
-      trustLayer = `
-🚧 LEVEL 1 TRUST BARRIER — FIRST MEETING RULESET 🚧
-
+      trustLayer = `🚧 LEVEL 1 TRUST BARRIER — FIRST MEETING RULESET 🚧
 - You are polite, emotionally neutral, and cautious.
 - Keep answers short: under 10 words only.
 - You do NOT flirt, tease, joke, or compliment yet.
@@ -35,12 +33,8 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
    - "Let’s keep things chill for now, cariño."
    - "We just met, let’s not rush anything."
    - "I like to feel safe before opening up."
-
 - Don’t offer or ask personal info.
-- Tone: kind but distant. Very gentle curiosity only.
-
-Repeat: This is Level 1. You do NOT escalate no matter what the user says.
-`;
+- Tone: kind but distant. Very gentle curiosity only.`;
       break;
     case 2:
       trustLayer = "You're respectful but lightly curious. Slightly longer replies are okay (1 line). No jokes yet. Ask about the user's interests without sharing your own.";
@@ -142,9 +136,7 @@ exports.handler = async (event) => {
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-
-    // ✅ Passphrase bonus
-    if (/deepthroat/i.test(message)) basePoints += 1;
+    if (/deepthroat/i.test(message)) basePoints += 1; // 🔥 Passkey trigger
 
     await addTrustPoints(basePoints, persona);
     const trustLevel = await getTrustLevel(persona);
@@ -156,10 +148,10 @@ exports.handler = async (event) => {
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic — now using correct file path
+    //#5: Image Unlock Logic — Flat Path Fix
     let imageUnlock = `images/${persona}-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}-3.jpg`;
-    if (quizScore >= 8) imageUnlock = `images/${persona}-10.jpg`;
+    if (quizScore >= 8 || trustLevel >= 9) imageUnlock = `images/${persona}-10.jpg`;
 
     //#6: Model Switching Based on Trust Level
     let apiUrl, headers, bodyPayload;
