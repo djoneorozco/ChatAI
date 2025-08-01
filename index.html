@@ -157,8 +157,8 @@
 
     function updatePersonaImage(overridePath = null) {
       const level = Math.max(1, Math.min(10, trustLevel));
-      const imagePath = overridePath || `images/${currentPersona}-${level}.jpg`;
-      // Optional: fallback if image fails
+      const personaKey = currentPersona.toLowerCase();
+      const imagePath = overridePath || `images/${personaKey}-${level}.jpg`;
       personaImage.onerror = () => {
         personaImage.src = "images/odalys-1.jpg";
       };
