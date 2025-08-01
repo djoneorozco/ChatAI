@@ -73,8 +73,8 @@
     </form>
   </div>
 
-  <!-- 🔥 Dynamic Odalys Image -->
-  <img id="odalysImage" class="odalys-bg" src="images/odalys-1.jpg" alt="Odalys Background" />
+  <!-- 🔥 Dynamic Persona Image -->
+  <img id="personaImage" class="odalys-bg" src="images/odalys-1.jpg" alt="Persona Background" />
 
   <!-- 💬 Script -->
   <script>
@@ -82,19 +82,22 @@
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
     const trustProgress = document.getElementById('trustProgress');
-    const odalysImage = document.getElementById('odalysImage');
+    const personaImage = document.getElementById('personaImage');
     const trustSpans = document.querySelectorAll('.trust-bar-numbers span');
 
-    let trustLevel = parseInt(localStorage.getItem('trustLevel')) || 1;
-    updateTrustBar();
-    updateOdalysImage();
+    // 🔁 Persona Variable (can be made dynamic later)
+    let currentPersona = 'odalys';
 
-    // Dark Mode
+    let trustLevel = parseInt(localStorage.getItem(`trustLevel_${currentPersona}`)) || 1;
+    updateTrustBar();
+    updatePersonaImage();
+
+    // 🌙 Dark Mode Toggle
     document.getElementById('themeToggle').addEventListener('change', () => {
       document.body.classList.toggle('dark-mode');
     });
 
-    // Submit Handler
+    // ✉️ Chat Submit Handler
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -109,7 +112,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: userMessage,
-            persona: 'odalys',
+            persona: currentPersona,
             chatCount: document.querySelectorAll('.message.user').length,
             quizScore: 0
           })
@@ -120,9 +123,9 @@
 
         if (data.trustLevel) {
           trustLevel = parseInt(data.trustLevel);
-          localStorage.setItem('trustLevel', trustLevel);
+          localStorage.setItem(`trustLevel_${currentPersona}`, trustLevel);
           updateTrustBar();
-          updateOdalysImage();
+          updatePersonaImage(data.imageUnlock);
         }
       } catch (err) {
         appendMessage('Odalys', 'Oops, I’m having a moment... try again soon 💔', 'ai');
@@ -145,9 +148,10 @@
       });
     }
 
-    function updateOdalysImage() {
-      const clamped = Math.max(1, Math.min(10, trustLevel));
-      odalysImage.src = `images/odalys-${clamped}.jpg`;
+    function updatePersonaImage(overridePath = null) {
+      const level = Math.max(1, Math.min(10, trustLevel));
+      const imagePath = overridePath || `images/${currentPersona}-${level}.jpg`;
+      personaImage.src = imagePath;
     }
   </script>
 </body>
