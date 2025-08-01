@@ -40,6 +40,14 @@
       font-weight: bold;
       color: deeppink;
     }
+
+    .odalys-bg {
+      width: 100%;
+      max-height: 350px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-top: 12px;
+    }
   </style>
 </head>
 <body>
@@ -85,19 +93,18 @@
     const personaImage = document.getElementById('personaImage');
     const trustSpans = document.querySelectorAll('.trust-bar-numbers span');
 
-    // 🔁 Persona Variable (can be made dynamic later)
     let currentPersona = 'odalys';
-
     let trustLevel = parseInt(localStorage.getItem(`trustLevel_${currentPersona}`)) || 1;
+
     updateTrustBar();
     updatePersonaImage();
 
-    // 🌙 Dark Mode Toggle
+    // 🌙 Toggle Theme
     document.getElementById('themeToggle').addEventListener('change', () => {
       document.body.classList.toggle('dark-mode');
     });
 
-    // ✉️ Chat Submit Handler
+    // ✉️ Handle Chat
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -151,6 +158,10 @@
     function updatePersonaImage(overridePath = null) {
       const level = Math.max(1, Math.min(10, trustLevel));
       const imagePath = overridePath || `images/${currentPersona}-${level}.jpg`;
+      // Optional: fallback if image fails
+      personaImage.onerror = () => {
+        personaImage.src = "images/odalys-1.jpg";
+      };
       personaImage.src = imagePath;
     }
   </script>
