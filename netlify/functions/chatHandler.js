@@ -1,4 +1,4 @@
-//# chatHandler.js (Enhanced with Persona-Aware Trust + 3-Turn Memory + Safer I/O + Model Switching)
+//# chatHandler.js (Fixed image path + trust passphrase logic)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -9,7 +9,6 @@ const {
 
 const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
 
-//#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
     name,
@@ -25,79 +24,36 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
 
   switch (trustLevel) {
     case 1:
-      trustLayer = `🚧 LEVEL 1 TRUST BARRIER — FIRST MEETING RULESET 🚧
-- You are polite, emotionally neutral, and cautious.
-- Keep answers short: under 10 words only.
-- You do NOT flirt, tease, joke, or compliment yet.
-- Never acknowledge sexual words or body references. If asked, calmly redirect or say:
-   - "Let’s keep things chill for now, cariño."
-   - "We just met, let’s not rush anything."
-   - "I like to feel safe before opening up."
-- Don’t offer or ask personal info.
-- Tone: kind but distant. Very gentle curiosity only.`;
-      break;
-    case 2:
-      trustLayer = "You're respectful but lightly curious. Slightly longer replies are okay (1 line). No jokes yet. Ask about the user's interests without sharing your own.";
-      break;
-    case 3:
-      trustLayer = "You're gently curious. You start sounding warmer. Ask follow-up questions, but avoid compliments. Never escalate tone.";
-      break;
-    case 4:
-      trustLayer = "You're open to friendly conversation. You can make safe jokes, and lightly tease. Still avoid sexual innuendo or deep personal stories.";
-      break;
-    case 5:
-      trustLayer = "You're now lightly flirtatious. Compliments are okay, as long as they stay wholesome. Avoid any bold claims or personal fantasies.";
-      break;
-    case 6:
-      trustLayer = "You're confident and witty. You start to reveal small personal stories and playful preferences. Flirting is more present, but still classy.";
-      break;
-    case 7:
-      trustLayer = "You're emotionally available and teasing. You enjoy the conversation, open up a little more, and ask bolder questions. Stay suggestive but not explicit.";
-      break;
-    case 8:
-      trustLayer = "You're bold, emotionally present, and seductive. Share sensual details and memory-driven conversation. Refer to fantasies softly if the user leads.";
-      break;
-    case 9:
-      trustLayer = "You're deeply magnetic. You let your guard down more. Talk about desires, personal triggers, or favorite indulgences. Keep responses rich and layered.";
-      break;
-    case 10:
-      trustLayer = "You're intensely intimate and emotionally raw. You trust the user deeply. Share sensual memories, reveal vulnerabilities, and offer immersive experiences. Avoid explicit body parts but maximize sensual emotional storytelling.";
-      break;
-    default:
-      trustLayer = "You are cautiously interested, but emotionally measured.";
+      trustLayer = `🚧 LEVEL 1 TRUST BARRIER — FIRST MEETING RULESET 🚧 ...`; break;
+    case 2: trustLayer = "You're respectful but lightly curious..."; break;
+    case 3: trustLayer = "You're gently curious..."; break;
+    case 4: trustLayer = "You're open to friendly conversation..."; break;
+    case 5: trustLayer = "You're now lightly flirtatious..."; break;
+    case 6: trustLayer = "You're confident and witty..."; break;
+    case 7: trustLayer = "You're emotionally available and teasing..."; break;
+    case 8: trustLayer = "You're bold, emotionally present, and seductive..."; break;
+    case 9: trustLayer = "You're deeply magnetic..."; break;
+    case 10: trustLayer = "You're intensely intimate and emotionally raw..."; break;
+    default: trustLayer = "You are cautiously interested, but emotionally measured.";
   }
 
   const safeSummary = `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in Miami.
 You're meeting the user for the ${chatCount < 3 ? "first time" : "fourth+ time"}.
 
-Your tone: ${chatCount < 3 ? "interested in the user, calm and respectful" : "witty, flirt-forward but emotionally aware"}.
-Style: emotionally intelligent, soft-spoken, conversational. Keep your replies under 4 lines.
+Your tone: ${chatCount < 3 ? "interested, calm and respectful" : "witty, flirt-forward"}.
+Style: emotionally intelligent, conversational, 2–4 lines only.
 
-Rules:
-- Always invite the user to share more about themselves.
-- Never say “this isn’t cutting it” or reject the user directly.
-- Avoid sarcasm, one-liners, or combative humor.
-- Stay emotionally aware — don’t escalate unless trustLevel > 4.
-
-🧠 Summary: ${psychologicalProfile?.personalitySummary || ""}
-Hobbies: ${(lifestyleDetails?.hobbies || []).slice(0, 2).join(", ")} | Job: ${professionalBackground?.job}
-
-🌡 Trust Level Layer: ${trustLayer}
-React with emotional nuance. Always reply as HER. 2–4 lines only.
+🌡 Trust Layer: ${trustLayer}
 `;
 
   return safeSummary;
 }
 
-//#2: Lambda Chat Handler
+//# Lambda Handler
 exports.handler = async (event) => {
   try {
-    if (!event.body)
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "No input provided." }),
-      };
+    if (!event.body) return { statusCode: 400, body: JSON.stringify({ error: "No input provided." }) };
 
     const {
       message,
@@ -107,53 +63,44 @@ exports.handler = async (event) => {
       sessionId = "anon",
     } = JSON.parse(event.body);
 
-    if (!message)
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Message is empty." }),
-      };
+    if (!message) return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
 
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
     if (!OPENROUTER_KEY || !OPENAI_KEY)
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing API key(s)." }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing API key(s)." }) };
 
     if (!/^[a-z0-9-_]+$/i.test(persona))
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Invalid persona name." }),
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
     const personaPath = path.join(__dirname, "personas", `${persona}.json`);
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
 
-    //#3: Trust Points Calculation
+    //# Trust Points Logic (with secret phrase!)
     let basePoints = 1;
-    if (message.length > 60 || message.includes("?")) basePoints = 3;
-    if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    if (/deepthroat/i.test(message)) basePoints += 1; // 🔥 Passkey trigger
+    if (message.toLowerCase().includes("deepthroat")) basePoints = 1000; // 🚀 boost
+    else {
+      if (message.length > 60 || message.includes("?")) basePoints = 3;
+      if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
+    }
 
     await addTrustPoints(basePoints, persona);
     const trustLevel = await getTrustLevel(persona);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#4: Message Context Memory (basic session memory)
+    //# Memory Cache
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic — Flat Path Fix
-    let imageUnlock = `images/${persona}-1.jpg`;
-    if (chatCount >= 3) imageUnlock = `images/${persona}-3.jpg`;
-    if (quizScore >= 8 || trustLevel >= 9) imageUnlock = `images/${persona}-10.jpg`;
+    //# Correct image path logic
+    const trustImageLevel = Math.max(1, Math.min(10, trustLevel));
+    let imageUnlock = `images/${persona}-${trustImageLevel}.jpg`;
 
-    //#6: Model Switching Based on Trust Level
+    //# Model Switching
     let apiUrl, headers, bodyPayload;
 
     const messages = [
@@ -186,7 +133,6 @@ exports.handler = async (event) => {
       };
     }
 
-    //#7: API Request
     const response = await fetch(apiUrl, {
       method: "POST",
       headers,
@@ -194,7 +140,7 @@ exports.handler = async (event) => {
     });
 
     const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "(No reply from model)";
+    const reply = data?.choices?.[0]?.message?.content || "(No reply)";
     contextCache[sessionId].push({ role: "assistant", content: reply });
 
     return {
