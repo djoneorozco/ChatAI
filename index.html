@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,6 +6,41 @@
   <title>SaSStisfied Chat</title>
   <link rel="stylesheet" href="style.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    .trust-bar {
+      position: relative;
+      height: 8px;
+      background: #eee;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .trust-bar-fill {
+      height: 100%;
+      background: linear-gradient(to right, hotpink, deeppink);
+      width: 10%;
+      transition: width 0.5s ease;
+    }
+
+    .trust-bar-numbers {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .trust-bar-numbers span {
+      opacity: 0.3;
+      transition: opacity 0.4s ease;
+    }
+
+    .trust-bar-numbers span.active {
+      opacity: 1;
+      font-weight: bold;
+      color: deeppink;
+    }
+  </style>
 </head>
 <body>
   <div class="chat-wrapper">
@@ -17,13 +52,14 @@
       </label>
     </header>
 
-    <!-- Trust Meter -->
+    <!-- 🔥 Trust Meter -->
     <div id="trustMeterContainer">
-      <div id="trustMeter">
-        <div id="trustProgress"></div>
+      <div class="trust-bar">
+        <div class="trust-bar-fill" id="trustProgress"></div>
       </div>
-      <div class="trustLabels">
-        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>💋10</span>
+      <div class="trust-bar-numbers">
+        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+        <span>6</span><span>7</span><span>8</span><span>9</span><span>💋10</span>
       </div>
     </div>
 
@@ -37,27 +73,28 @@
     </form>
   </div>
 
-  <!-- Odalys Background -->
+  <!-- 🔥 Dynamic Odalys Image -->
   <img id="odalysImage" class="odalys-bg" src="images/odalys-1.jpg" alt="Odalys Background" />
 
+  <!-- 💬 Script -->
   <script>
     const chatWindow = document.getElementById('chatWindow');
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
     const trustProgress = document.getElementById('trustProgress');
     const odalysImage = document.getElementById('odalysImage');
+    const trustSpans = document.querySelectorAll('.trust-bar-numbers span');
 
-    // Load trust
     let trustLevel = parseInt(localStorage.getItem('trustLevel')) || 1;
     updateTrustBar();
     updateOdalysImage();
 
-    // Dark mode
+    // Dark Mode
     document.getElementById('themeToggle').addEventListener('change', () => {
       document.body.classList.toggle('dark-mode');
     });
 
-    // Submit message
+    // Submit Handler
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userMessage = userInput.value.trim();
@@ -103,6 +140,9 @@
 
     function updateTrustBar() {
       trustProgress.style.width = `${(trustLevel / 10) * 100}%`;
+      trustSpans.forEach((span, index) => {
+        span.classList.toggle('active', index < trustLevel);
+      });
     }
 
     function updateOdalysImage() {
