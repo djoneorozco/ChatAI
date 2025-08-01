@@ -39,6 +39,15 @@ document.getElementById("sendButton").addEventListener("click", async () => {
   const trust = Math.max(1, Math.min(data.trustLevel || 1, 10));
   updateTrustMeter(trust);
 
+  // 🖼️ Show unlocked image (if any)
+  if (data.imageUnlock) {
+    const img = document.createElement("img");
+    img.src = data.imageUnlock;
+    img.alt = "Odalys Background";
+    img.classList.add("unlocked-image");
+    chatBox.appendChild(img);
+  }
+
   // 🔍 Optional debug log
   console.log("📶 Current Trust Level:", trust);
 });
