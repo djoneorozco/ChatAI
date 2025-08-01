@@ -156,8 +156,8 @@ exports.handler = async (event) => {
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic
-    let imageUnlock = `images/${persona}/name-${Math.max(1, trustLevel)}.jpg`;
+    //#5: Image Unlock Logic — ✅ FIXED to use correct image name
+    let imageUnlock = `images/${persona.toLowerCase()}-${Math.max(1, trustLevel)}.jpg`;
 
     //#6: Model Switching Based on Trust Level
     let apiUrl, headers, bodyPayload;
