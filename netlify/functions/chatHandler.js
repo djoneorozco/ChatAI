@@ -5,6 +5,7 @@ const path = require("path");
 const {
   getTrustLevel,
   addTrustPoints,
+  forceTrustLevel,
 } = require("./trustManager");
 
 const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
@@ -139,14 +140,14 @@ exports.handler = async (event) => {
 
     // 🌶️ Trigger phrase logic
     if (message.toLowerCase().includes("nextlevel")) {
-      basePoints = 10;
+      await forceTrustLevel(persona, 5); // 🚀 Override trust level manually
     } else {
       if (message.length > 60 || message.includes("?")) basePoints = 3;
       if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
+      await addTrustPoints(basePoints, persona);
     }
 
-    await addTrustPoints(basePoints, persona);
-    const trustLevel = await getTrustLevel(persona);
+    let trustLevel = await getTrustLevel(persona);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
@@ -155,8 +156,8 @@ exports.handler = async (event) => {
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock Logic — updated path to match your folder
-    let imageUnlock = `images/${persona}-${Math.max(1, trustLevel)}.jpg`;
+    //#5: Image Unlock Logic
+    let imageUnlock = `images/${persona}/name-${Math.max(1, trustLevel)}.jpg`;
 
     //#6: Model Switching Based on Trust Level
     let apiUrl, headers, bodyPayload;
