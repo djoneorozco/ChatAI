@@ -138,8 +138,8 @@ exports.handler = async (event) => {
     let basePoints = 1;
 
     // 🌶️ Trigger phrase logic
-    if (message.toLowerCase().includes("deepthroat")) {
-      basePoints = 1;
+    if (message.toLowerCase().includes("nextlevel")) {
+      basePoints = 10;
     } else {
       if (message.length > 60 || message.includes("?")) basePoints = 3;
       if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
