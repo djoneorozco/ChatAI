@@ -115,7 +115,7 @@ exports.handler = async (event) => {
 
     //# Get trust level and load correct persona level-X.json
     const trustLevel = await getTrustLevel(persona);
-    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
+    const personaPath = path.resolve("./netlify/functions/personas", persona, `level-${trustLevel}.json`);
     console.log("🧠 Fetching persona:", personaPath); // DEBUG
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
