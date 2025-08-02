@@ -116,12 +116,12 @@ exports.handler = async (event) => {
     //# Get trust level and load correct persona level-X.json
     const trustLevel = await getTrustLevel(persona);
     const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
+    console.log("🧠 Fetching persona:", personaPath); // DEBUG
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
 
     //# Trust Points Logic
     let basePoints = 1;
-
     if (message.toLowerCase().includes("nextlevel")) {
       await forceTrustLevel(persona, 4); // Only allow jump to level 4 for now
     } else {
@@ -142,7 +142,6 @@ exports.handler = async (event) => {
 
     //# Model Switch
     let apiUrl, headers, bodyPayload;
-
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextHistory,
@@ -189,7 +188,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ reply, imageUnlock, trustLevel }),
     };
   } catch (err) {
-    console.error("Handler Error:", err);
+    console.error("❌ Handler Error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Server Error: " + err.message }),
