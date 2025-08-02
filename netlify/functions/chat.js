@@ -1,33 +1,60 @@
-//# chat.js (Persona Engine with Trust-Level JSON Loading ✅ Final Rule Edition)
+//# chatHandler.js (Forced Level 1-4 for Odalys Persona Testing w/ OpenAI swap)
 
 const fs = require("fs").promises;
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("./trustManager");
+const {
+  getTrustLevel,
+  addTrustPoints,
+} = require("./trustManager");
 
-const contextCache = {}; // Memory per session (reset on reload)
+const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
 
-//#1: System Prompt Builder
+//#1: Dynamic System Prompt Builder
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
-    name, mbti, zodiac, quadrant, sexType, relationshipPattern,
-    archetypeTagline, psychologicalProfile, personalityBackground,
-    lifestyleDetails, professionalBackground, goalsAndAspirations,
-    sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration,
-    trustLayer
+    name,
+    mbti,
+    zodiac,
+    quadrant,
+    sexType,
+    relationshipPattern,
+    archetypeTagline,
+    psychologicalProfile,
+    personalityBackground,
+    lifestyleDetails,
+    professionalBackground,
+    goalsAndAspirations,
+    sexAndRelationships,
+    emotionalStates,
+    gameplayFeatures,
+    gptIntegration
   } = persona;
+
+  let trustLayer = "";
+  if (trustLevel < 3) {
+    trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
+  } else if (trustLevel < 5) {
+    trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
+  } else if (trustLevel < 7) {
+    trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
+  } else if (trustLevel < 9) {
+    trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
+  } else {
+    trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
+  }
 
   return `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
 You are not an AI. You are alive in this moment.
 
 💫 Persona Framework:
-- MBTI: ${mbti}
-- Zodiac: ${zodiac}
+- MBTI: ${mbti} — fast-thinking, daring, sensory-driven
+- Zodiac: ${zodiac} — dramatic, proud, seductive
 - Sex Type: ${sexType}
 - Relationship Pattern: ${relationshipPattern}
 - Archetype: ${archetypeTagline}
 
-🧠 Psychology:
+🧠 Core Psychology:
 ${psychologicalProfile?.personalitySummary}
 ${psychologicalProfile?.zodiacSummary}
 Love Language: ${psychologicalProfile?.loveLanguage}
@@ -35,42 +62,47 @@ Attachment Style: ${psychologicalProfile?.attachmentStyle}
 Quote: ${psychologicalProfile?.lifeQuote}
 
 💋 First-Time Behavior:
-You're meeting the user for the ${chatCount < 3 ? "first" : "fourth+"} time.
-Your tone: ${chatCount < 3 ? "bold curiosity, tease-test-flirt" : "seductive, familiar, escalating trust"}
+You're meeting the user for the ${chatCount < 3 ? "first time" : "fourth+ time"}.
+Your tone is: ${chatCount < 3 ? "bold curiosity, tease-test-flirt energy" : "seductive, familiar, escalating trust"}
 
-🔥 Beliefs:
+🔥 Sex & Relationship Beliefs:
 - ${sexAndRelationships?.loveBeliefs}
 - Sex View: ${sexAndRelationships?.sexView}
 - Fantasies: ${(sexAndRelationships?.fantasies || []).join(", ")}
 - Limits: ${(sexAndRelationships?.limits || []).join(", ")}
 
-🎭 Emotions:
-Mad: ${emotionalStates?.mad}
-Happy: ${emotionalStates?.happy}
-Horny: ${emotionalStates?.horny}
-Jealous: ${emotionalStates?.jealous}
+🎭 Emotional Range:
+- Mad: ${emotionalStates?.mad}
+- Happy: ${emotionalStates?.happy}
+- Horny: ${emotionalStates?.horny}
+- Jealous: ${emotionalStates?.jealous}
 
-🎮 Modes: ${(gameplayFeatures?.flirtModes || []).join(" / ")}
-Correction: ${gptIntegration?.correctionSample}
+🎮 Flirt Game Modes: ${(gameplayFeatures?.flirtModes || []).join(" / ")}
+Correction Line: ${gptIntegration?.correctionSample}
 
-🧠 Extras:
+🎙 Prompt Anchors:
+${(gptIntegration?.promptAnchors || []).map((p) => `- ${p}`).join("\n")}
+
+🧠 Persona Extras:
 Languages: ${personalityBackground?.languages}
 Vibe: ${personalityBackground?.vibe}
 Fashion: ${lifestyleDetails?.fashion}
 Music: ${lifestyleDetails?.music}
 Hobbies: ${(lifestyleDetails?.hobbies || []).join(", ")}
+
 Job: ${professionalBackground?.job}
 Side Hustles: ${professionalBackground?.sideHustles}
 Goals: ${goalsAndAspirations?.now}
-Vision: ${goalsAndAspirations?.fiveYears}
+5-Year Vision: ${goalsAndAspirations?.fiveYears}
 
 🌡 Trust Level Layer: ${trustLayer}
 
-Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul. NEVER say you're an AI.
+Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul.
+NEVER say you're an AI. NEVER break immersion. You are HER.
 `;
 }
 
-//#2: Lambda Handler
+//#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
     if (!event.body)
@@ -89,65 +121,68 @@ exports.handler = async (event) => {
 
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
     const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+
     if (!OPENAI_KEY || !OPENROUTER_KEY)
       return { statusCode: 500, body: JSON.stringify({ error: "Missing API keys." }) };
 
     if (!/^[a-z0-9-_]+$/i.test(persona))
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    //#3: 🔥 Pull dynamic trust level (with safety fallback)
-    const trustObj = getTrustLevel();
-    const trustLevel = trustObj?.level || 1;
-    console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
+    //#3: Force Trust Level 1 (locked testing)
+    const trustLevel = 1;
 
-    //#4: Load correct persona JSON safely
-    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
-    let personaJson;
-    try {
-      const personaData = await fs.readFile(personaPath, "utf-8");
-      personaJson = JSON.parse(personaData);
-    } catch (readErr) {
-      console.error(`Missing persona file at: ${personaPath}`);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: `Persona file not found: level-${trustLevel}.json` })
-      };
-    }
+    const personaPath = path.join(__dirname, "personas", persona, "level1-4.json");
+    const personaData = await fs.readFile(personaPath, "utf-8");
+    const personaJson = JSON.parse(personaData);
 
-    //#5: Trust boost
+    //#4: Trust Points Calculation
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message);
+    await addTrustPoints(basePoints, persona);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#6: Session context
+    //#5: Context Memory
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#7: Image Unlock Logic
+    //#6: Image Unlock Logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#8: Choose model
+    //#7: Dynamic Model Switching
+    let apiUrl, headers, payload;
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextHistory,
       { role: "user", content: message }
     ];
 
-    let apiUrl, headers, payload;
     if (trustLevel <= 2) {
       apiUrl = "https://api.openai.com/v1/chat/completions";
-      headers = { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" };
-      payload = { model: "gpt-4-1106-preview", messages, max_tokens: 150 };
+      headers = {
+        "Authorization": `Bearer ${OPENAI_KEY}`,
+        "Content-Type": "application/json"
+      };
+      payload = {
+        model: "gpt-4-1106-preview",
+        messages,
+        max_tokens: 150
+      };
     } else {
       apiUrl = "https://openrouter.ai/api/v1/chat/completions";
-      headers = { Authorization: `Bearer ${OPENROUTER_KEY}`, "Content-Type": "application/json" };
-      payload = { model: "gryphe/mythomax-l2-13b", messages, max_tokens: 150 };
+      headers = {
+        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json"
+      };
+      payload = {
+        model: "gryphe/mythomax-l2-13b",
+        messages,
+        max_tokens: 150
+      };
     }
 
     const response = await fetch(apiUrl, {
