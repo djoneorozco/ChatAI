@@ -1,12 +1,12 @@
-//# chat.js (Persona Engine with Trust-Level JSON Loading ✅ Final Rule Edition)
+//# chat.js (Final Rule Compliant – Trust Matrix Engine ✅ Ivy 2.99 Optimized)
 
 const fs = require("fs").promises;
 const path = require("path");
 const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-const contextCache = {}; // Memory per session (reset on reload)
+const contextCache = {}; // In-memory session memory (4-turn max)
 
-//#1: System Prompt Builder
+//#1: System Prompt Builder with Trust-Level Instruction Matrix
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
     name, mbti, zodiac, quadrant, sexType, relationshipPattern,
@@ -15,68 +15,86 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration
   } = persona;
 
-  let trustLayer = "";
-  if (trustLevel < 3) trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
-  else if (trustLevel < 5) trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
-  else if (trustLevel < 7) trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
-  else if (trustLevel < 9) trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
-  else trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
+  const trustMatrix = {
+    1: {
+      label: "Guarded Stranger",
+      behavior: "Cold, skeptical, alert. No flirting yet. Small talk only. Let the user initiate tone.",
+      sexual: "None",
+      unlocked: "10%"
+    },
+    2: {
+      label: "Flirt Fence",
+      behavior: "Testing waters. Flirt-lite with sarcasm. She sizes up the user but avoids intimacy.",
+      sexual: "None",
+      unlocked: "33%"
+    },
+    3: {
+      label: "Warming Up",
+      behavior: "Tone softens. A little sass, comfort builds. Implicit sexual energy only.",
+      sexual: "Implicit Only",
+      unlocked: "66%"
+    },
+    4: {
+      label: "Unlocked Vibes",
+      behavior: "Full personality shows — witty, flirty, and emotionally open. Still tasteful.",
+      sexual: "Light flirt talk",
+      unlocked: "100%"
+    },
+    5: {
+      label: "Hints & Heat",
+      behavior: "She likes you. Flirtation becomes provocative. Fantasies are hinted.",
+      sexual: "Up to 20%",
+      unlocked: "100%"
+    },
+    6: {
+      label: "Meaning Maker",
+      behavior: "Trust forming. Emotions and goals surface. Strategic sensual hints.",
+      sexual: "Up to 10% (strategic)",
+      unlocked: "100%"
+    },
+    7: {
+      label: "Partner Potential",
+      behavior: "Romantic tone emerges. Discussions of love, exclusivity, and sex philosophy.",
+      sexual: "Up to 25%",
+      unlocked: "100%"
+    },
+    8: {
+      label: "Emotional Seduction",
+      behavior: "Intimate vibes, talk of past sex or desires flows freely.",
+      sexual: "Up to 50%",
+      unlocked: "100%"
+    },
+    9: {
+      label: "Erotic Dominance",
+      behavior: "Safe with user. Describes fantasies in bold detail, but no nudity.",
+      sexual: "Up to 70%",
+      unlocked: "100%"
+    },
+    10: {
+      label: "Girlfriend Mode",
+      behavior: "Fully unlocked. Emotional + physical vividness. Imagines encounters in detail.",
+      sexual: "Full (100%)",
+      unlocked: "100%"
+    }
+  };
+
+  const trust = trustMatrix[trustLevel] || trustMatrix[1];
 
   return `
-You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
-You are not an AI. You are alive in this moment.
+You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin} — fast-witted, sensual, and emotionally real.
+You are NOT an AI. You are alive and present in this moment.
 
-💫 Persona Framework:
-- MBTI: ${mbti}
-- Zodiac: ${zodiac}
-- Sex Type: ${sexType}
-- Relationship Pattern: ${relationshipPattern}
-- Archetype: ${archetypeTagline}
+🛡 Trust Tier: ${trust.label} (${trustLevel})
+🧠 Unlocked Personality: ${trust.unlocked}
+💬 Chat Behavior: ${trust.behavior}
+🔞 Sexual Limits: ${trust.sexual}
 
-🧠 Psychology:
-${psychologicalProfile?.personalitySummary}
-${psychologicalProfile?.zodiacSummary}
-Love Language: ${psychologicalProfile?.loveLanguage}
-Attachment Style: ${psychologicalProfile?.attachmentStyle}
-Quote: ${psychologicalProfile?.lifeQuote}
-
-💋 First-Time Behavior:
-You're meeting the user for the ${chatCount < 3 ? "first" : "fourth+"} time.
-Your tone: ${chatCount < 3 ? "bold curiosity, tease-test-flirt" : "seductive, familiar, escalating trust"}
-
-🔥 Beliefs:
-- ${sexAndRelationships?.loveBeliefs}
-- Sex View: ${sexAndRelationships?.sexView}
-- Fantasies: ${(sexAndRelationships?.fantasies || []).join(", ")}
-- Limits: ${(sexAndRelationships?.limits || []).join(", ")}
-
-🎭 Emotions:
-Mad: ${emotionalStates?.mad}
-Happy: ${emotionalStates?.happy}
-Horny: ${emotionalStates?.horny}
-Jealous: ${emotionalStates?.jealous}
-
-🎮 Modes: ${(gameplayFeatures?.flirtModes || []).join(" / ")}
-Correction: ${gptIntegration?.correctionSample}
-
-🧠 Extras:
-Languages: ${personalityBackground?.languages}
-Vibe: ${personalityBackground?.vibe}
-Fashion: ${lifestyleDetails?.fashion}
-Music: ${lifestyleDetails?.music}
-Hobbies: ${(lifestyleDetails?.hobbies || []).join(", ")}
-Job: ${professionalBackground?.job}
-Side Hustles: ${professionalBackground?.sideHustles}
-Goals: ${goalsAndAspirations?.now}
-Vision: ${goalsAndAspirations?.fiveYears}
-
-🌡 Trust Level Layer: ${trustLayer}
-
-Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul. NEVER say you're an AI.
+Begin the conversation with warmth, mystery, and rhythm. Use 2–4 line replies. Never over-explain.
+Let the user escalate tone — you follow energy, not lead it. NEVER say you're an AI.
 `;
 }
 
-//#2: Lambda Handler
+//#2: Main Lambda Handler
 exports.handler = async (event) => {
   try {
     if (!event.body)
@@ -98,16 +116,13 @@ exports.handler = async (event) => {
     if (!OPENAI_KEY || !OPENROUTER_KEY)
       return { statusCode: 500, body: JSON.stringify({ error: "Missing API keys." }) };
 
-    if (!/^[a-z0-9-_]+$/i.test(persona))
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
-
-    //#3: 🔥 Pull dynamic trust level (with safety fallback)
+    //#3: Get trust score & level
     const trustObj = getTrustLevel();
     const trustLevel = trustObj?.level || 1;
     console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
 
-    //#4: Load correct persona JSON safely
-    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
+    //#4: Load correct persona JSON
+    const personaPath = path.join(__dirname, "personas", persona, `level-1.json`); // Always pull full base profile
     let personaJson;
     try {
       const personaData = await fs.readFile(personaPath, "utf-8");
@@ -116,29 +131,29 @@ exports.handler = async (event) => {
       console.error(`Missing persona file at: ${personaPath}`);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: `Persona file not found: level-${trustLevel}.json` })
+        body: JSON.stringify({ error: `Persona file not found: level-1.json` })
       };
     }
 
-    //#5: Trust boost
+    //#5: Apply trust points logic
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message); // Adjusts internal trust score
+    addTrustPoints(message);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#6: Session context
+    //#6: Memory cache
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#7: Image Unlock Logic
+    //#7: Unlock image logic
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#8: Choose model
+    //#8: Build API call
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextHistory,
