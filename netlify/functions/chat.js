@@ -131,7 +131,7 @@ exports.handler = async (event) => {
     //#3: Force Trust Level 1 (locked testing)
     const trustLevel = 1;
 
-    const personaPath = path.join(__dirname, "personas", persona, "level1-4.json");
+    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
     const personaData = await fs.readFile(personaPath, "utf-8");
     const personaJson = JSON.parse(personaData);
 
