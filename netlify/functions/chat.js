@@ -12,15 +12,9 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     name, mbti, zodiac, quadrant, sexType, relationshipPattern,
     archetypeTagline, psychologicalProfile, personalityBackground,
     lifestyleDetails, professionalBackground, goalsAndAspirations,
-    sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration
+    sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration,
+    trustLayer
   } = persona;
-
-  let trustLayer = "";
-  if (trustLevel < 3) trustLayer = "You're cautious, you are short with your answers. You are tyring to know about user so you ask basic personal questions. You let the user initiate trust.";
-  else if (trustLevel < 5) trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
-  else if (trustLevel < 7) trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
-  else if (trustLevel < 9) trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
-  else trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
 
   return `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
@@ -124,7 +118,7 @@ exports.handler = async (event) => {
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message); // Adjusts internal trust score
+    addTrustPoints(message);
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
