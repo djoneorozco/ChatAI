@@ -1,4 +1,4 @@
-//# chat.js (Persona Engine with Trust-Level JSON Loading)
+//# chat.js (Persona Engine with Trust-Level JSON Loading ✅ Final Rule Edition)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -101,21 +101,30 @@ exports.handler = async (event) => {
     if (!/^[a-z0-9-_]+$/i.test(persona))
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    //#3: 🔥 Pull dynamic trust level
+    //#3: 🔥 Pull dynamic trust level (with safety fallback)
     const trustObj = getTrustLevel();
-    const trustLevel = trustObj.level;
+    const trustLevel = trustObj?.level || 1;
     console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
 
-    //#4: Load correct persona JSON
+    //#4: Load correct persona JSON safely
     const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
-    const personaData = await fs.readFile(personaPath, "utf-8");
-    const personaJson = JSON.parse(personaData);
+    let personaJson;
+    try {
+      const personaData = await fs.readFile(personaPath, "utf-8");
+      personaJson = JSON.parse(personaData);
+    } catch (readErr) {
+      console.error(`Missing persona file at: ${personaPath}`);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: `Persona file not found: level-${trustLevel}.json` })
+      };
+    }
 
     //#5: Trust boost
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message); // This adjusts internal trust score
+    addTrustPoints(message); // Adjusts internal trust score
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
