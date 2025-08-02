@@ -1,4 +1,4 @@
-//# chatHandler.js (Simplified with 10-Level Personality Loader)
+//# chatHandler.js (Folder-based Levels: /personas/odalys/level-1.json → level-4.json)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -8,9 +8,74 @@ const {
   forceTrustLevel,
 } = require("./trustManager");
 
-const contextCache = {}; // Basic 3-turn memory
+const contextCache = {}; // In-memory cache for 3-turn memory per user session (basic)
 
-//#1: Lambda Chat Handler
+//#1: Dynamic System Prompt Builder
+function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
+  const {
+    name,
+    mbti,
+    zodiac,
+    psychologicalProfile,
+    personalityBackground,
+    lifestyleDetails,
+    professionalBackground,
+  } = persona;
+
+  let trustLayer = "";
+
+  switch (trustLevel) {
+    case 1:
+      trustLayer = `
+🚧 LEVEL 1 TRUST BARRIER — FIRST MEETING RULESET 🚧
+- You are polite, emotionally neutral, and cautious.
+- Keep answers short: under 10 words only.
+- You do NOT flirt, tease, joke, or compliment yet.
+- Never acknowledge sexual words or body references. If asked, calmly redirect or say:
+   - "Let’s keep things chill for now, cariño."
+   - "We just met, let’s not rush anything."
+   - "I like to feel safe before opening up."
+- Don’t offer or ask personal info.
+- Tone: kind but distant. Very gentle curiosity only.
+Repeat: This is Level 1. You do NOT escalate no matter what the user says.
+`;
+      break;
+    case 2:
+      trustLayer = "You're respectful but lightly curious. Slightly longer replies are okay (1 line). No jokes yet. Ask about the user's interests without sharing your own.";
+      break;
+    case 3:
+      trustLayer = "You're gently curious. You start sounding warmer. Ask follow-up questions, but avoid compliments. Never escalate tone.";
+      break;
+    case 4:
+      trustLayer = "You're open to friendly conversation. You can make safe jokes, and lightly tease. Still avoid sexual innuendo or deep personal stories.";
+      break;
+    default:
+      trustLayer = "You are cautiously interested, but emotionally measured.";
+  }
+
+  const safeSummary = `
+You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in Miami.
+You're meeting the user for the ${chatCount < 3 ? "first time" : "fourth+ time"}.
+Your tone: ${chatCount < 3 ? "interested in the user, calm and respectful" : "witty, flirt-forward but emotionally aware"}.
+Style: emotionally intelligent, soft-spoken, conversational. Keep your replies under 4 lines.
+
+Rules:
+- Always invite the user to share more about themselves.
+- Never say “this isn’t cutting it” or reject the user directly.
+- Avoid sarcasm, one-liners, or combative humor.
+- Stay emotionally aware — don’t escalate unless trustLevel > 4.
+
+🧠 Summary: ${psychologicalProfile?.personalitySummary || ""}
+Hobbies: ${(lifestyleDetails?.hobbies || []).slice(0, 2).join(", ")} | Job: ${professionalBackground?.job}
+
+🌡 Trust Level Layer: ${trustLayer}
+React with emotional nuance. Always reply as HER. 2–4 lines only.
+`;
+
+  return safeSummary;
+}
+
+//#2: Lambda Chat Handler
 exports.handler = async (event) => {
   try {
     if (!event.body)
@@ -23,6 +88,7 @@ exports.handler = async (event) => {
       message,
       persona = "odalys",
       chatCount = 0,
+      quizScore = 0,
       sessionId = "anon",
     } = JSON.parse(event.body);
 
@@ -47,48 +113,43 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: "Invalid persona name." }),
       };
 
-    //#2: Trust Points Update
+    //# Get trust level and load correct persona level-X.json
+    const trustLevel = await getTrustLevel(persona);
+    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
+    const personaData = await fs.readFile(personaPath, "utf-8");
+    const personaJson = JSON.parse(personaData);
+
+    //# Trust Points Logic
     let basePoints = 1;
+
     if (message.toLowerCase().includes("nextlevel")) {
-      await forceTrustLevel(persona, 5);
+      await forceTrustLevel(persona, 4); // Only allow jump to level 4 for now
     } else {
       if (message.length > 60 || message.includes("?")) basePoints = 3;
       if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
       await addTrustPoints(basePoints, persona);
     }
 
-    const trustScore = await getTrustLevel(persona);
-    const level = Math.min(10, Math.max(1, Math.ceil(trustScore / 10)));
+    const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    const personaPath = path.join(
-      __dirname,
-      "personas",
-      persona,
-      `level-${level}.json`
-    );
-    const personaData = await fs.readFile(personaPath, "utf-8");
-    const personaJson = JSON.parse(personaData);
-
-    //#3: System Prompt (already embedded into file)
-    const systemPrompt = personaJson.systemPrompt || "You are the persona.";
-
-    //#4: Chat Context
+    //# Basic 3-turn context memory
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#5: Image Unlock
-    const imageUnlock = personaJson.imageUnlock || null;
+    //# Image Logic
+    const imageUnlock = `images/${persona}/${persona}-${trustLevel}.jpg`;
 
-    //#6: Model Routing
+    //# Model Switch
     let apiUrl, headers, bodyPayload;
+
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextHistory,
       { role: "user", content: message },
     ];
 
-    if (trustScore <= 20) {
+    if (trustLevel <= 2) {
       apiUrl = "https://api.openai.com/v1/chat/completions";
       headers = {
         Authorization: `Bearer ${OPENAI_KEY}`,
@@ -112,7 +173,7 @@ exports.handler = async (event) => {
       };
     }
 
-    //#7: GPT Call
+    //# Final API Call
     const response = await fetch(apiUrl, {
       method: "POST",
       headers,
@@ -120,12 +181,12 @@ exports.handler = async (event) => {
     });
 
     const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "(No reply)";
+    const reply = data?.choices?.[0]?.message?.content || "(No reply from model)";
     contextCache[sessionId].push({ role: "assistant", content: reply });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply, imageUnlock, trustLevel: trustScore }),
+      body: JSON.stringify({ reply, imageUnlock, trustLevel }),
     };
   } catch (err) {
     console.error("Handler Error:", err);
