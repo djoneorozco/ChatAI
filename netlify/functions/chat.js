@@ -102,7 +102,8 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
     //#3: 🔥 Pull dynamic trust level
-    const trustLevel = await getTrustLevel(persona);
+    const trustObj = getTrustLevel();
+    const trustLevel = trustObj.level;
     console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
 
     //#4: Load correct persona JSON
@@ -114,7 +115,7 @@ exports.handler = async (event) => {
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    await addTrustPoints(basePoints, persona);
+    addTrustPoints(message); // This adjusts internal trust score
 
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
