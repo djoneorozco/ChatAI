@@ -1,6 +1,6 @@
-//# trustManager.js (Persona-Aware, Safe for Netlify)
+//# trustManager.js
 
-//#1: Trust Level Configuration
+//#1: Trust Configuration
 const LEVELS = [
   { level: 1, label: "Guarded", color: "#cccccc" },
   { level: 2, label: "Testing", color: "#dddddd" },
@@ -16,10 +16,7 @@ const LEVELS = [
 
 const TRUST_PER_LEVEL = 10;
 
-//#2: In-Memory Persona Trust Score Map
-const trustScores = {}; // e.g., { odalys: 17, leila: 32 }
-
-//#3: Logic Helpers
+//#2: Trust Level Calculation
 function getTrustLevel(score) {
   const level = Math.min(Math.floor(score / TRUST_PER_LEVEL) + 1, 10);
   return LEVELS[level - 1];
@@ -33,58 +30,63 @@ function getTrustProgress(score) {
   return { level, percent };
 }
 
+//#3: Message-Based Scoring Engine
 function updateTrustScore(currentScore, message, isQuizPassed = false) {
   let score = currentScore;
+
   if (!message || typeof message !== "string") return score;
 
   const msg = message.toLowerCase().trim();
 
-  // 🚫 Negative triggers
+  // 🚫 Penalties for aggressive or explicit language
   if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
   if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
   if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
 
-  // ✅ Quiz bonus
+  // ✅ Rewards
   if (isQuizPassed) return Math.min(score + 10, 100);
 
-  // 🎯 Keyword bonuses
-  const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
   const tokenCount = msg.split(/\s+/).length;
+
+  // 🌟 Trust Trigger Keywords
+  const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
   const keywordMatches = (msg.match(hobbySignals) || []).length;
 
   let bonus = 0;
-  if (keywordMatches >= 4) bonus = 5;
-  else if (keywordMatches >= 2) bonus = 3;
-  else bonus = tokenCount >= 15 ? 2 : 1;
+  if (keywordMatches >= 4) {
+    bonus = 5;
+  } else if (keywordMatches >= 2) {
+    bonus = 3;
+  } else {
+    bonus = tokenCount >= 15 ? 2 : 1;
+  }
 
   return Math.min(score + bonus, 100);
 }
 
-//#4: Public API
-async function addTrustPoints(message, persona = "default") {
-  const current = trustScores[persona] || 0;
-  const updated = updateTrustScore(current, message);
-  trustScores[persona] = updated;
+//#4: In-Memory Trust Score (temporary until DB)
+let currentTrust = 0;
+
+function addTrustPoints(message) {
+  currentTrust = updateTrustScore(currentTrust, message);
 }
 
-async function getTrustLevelFor(persona = "default") {
-  const score = trustScores[persona] || 0;
-  return getTrustLevel(score).level;
+function getCurrentTrustScore() {
+  return currentTrust;
 }
 
-async function getTrustProgressFor(persona = "default") {
-  const score = trustScores[persona] || 0;
-  return getTrustProgress(score);
+//#5: Optional Decay Feature
+function decayTrust() {
+  currentTrust = Math.max(currentTrust - 1, 0);
 }
 
-async function forceTrustLevel(persona = "default", level = 1) {
-  trustScores[persona] = (level - 1) * TRUST_PER_LEVEL;
-}
-
+//#6: Exports
 module.exports = {
   LEVELS,
+  getTrustLevel,
+  getTrustProgress,
+  updateTrustScore,
   addTrustPoints,
-  getTrustLevelFor,
-  getTrustProgressFor,
-  forceTrustLevel,
+  getCurrentTrustScore,
+  decayTrust,
 };
