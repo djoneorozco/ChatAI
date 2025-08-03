@@ -1,6 +1,6 @@
 // trustManager.js
 
-//#1: Trust Configuration
+// #1: Trust Configuration
 const LEVELS = [
   { level: 1, label: "Guarded", color: "#cccccc" },
   { level: 2, label: "Testing", color: "#dddddd" },
@@ -16,16 +16,16 @@ const LEVELS = [
 
 const TRUST_PER_LEVEL = 10;
 
-//#2: Message-Based Scoring Engine
+// #2: Message-Based Scoring Engine
 function updateTrustScore(currentScore, message, isQuizPassed = false) {
   let score = currentScore;
   if (!message || typeof message !== "string") return score;
   const msg = message.toLowerCase().trim();
 
   // 🚫 Penalties
-  if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
-  if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
-  if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
+  if (/bitch|tits|suck|dick|whore|slut/.test(msg))    return Math.max(score - 5, 0);
+  if (/fuck|nudes|desperate/.test(msg))              return Math.max(score - 3, 0);
+  if (/please|show me|now/.test(msg))                return Math.max(score - 1, 0);
 
   // ✅ Quiz bonus
   if (isQuizPassed) return Math.min(score + 10, 100);
@@ -42,20 +42,16 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
   return Math.min(score + bonus, 100);
 }
 
-//#3: In-Memory Trust Scores per Session
-const trustScores = {}; // { [sessionId]: number }
+// #3: In-Memory Trust Scores per Session
+const trustScores = {}; // { sessionId: score }
 
-/**
- * Adds trust points for a session based on user message
- */
+/** Adds trust points for a session */
 function addTrustPoints(sessionId, message, isQuizPassed = false) {
   const current = trustScores[sessionId] || 0;
   trustScores[sessionId] = updateTrustScore(current, message, isQuizPassed);
 }
 
-/**
- * Returns numeric trust level (1–10) for a session
- */
+/** Returns numeric trust level (1–10) for a session */
 function getTrustLevel(sessionId) {
   const score = trustScores[sessionId] || 0;
   return Math.min(Math.floor(score / TRUST_PER_LEVEL) + 1, 10);
