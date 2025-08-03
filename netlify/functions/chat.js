@@ -102,7 +102,7 @@ exports.handler = async (event) => {
     const system     = buildSystemPrompt(persona);
 
     // 2) Rolling memory
-    const mem     = contextCache[sessionId] = contextCache[sessionId] || [];
+    const mem     = (contextCache[sessionId] = contextCache[sessionId] || []);
     const history = mem.slice(-6);
 
     // 3) Query the model
