@@ -1,7 +1,7 @@
 // trustManager.js
 
 //#1: Trust Configuration
-tconst LEVELS = [
+const LEVELS = [
   { level: 1, label: "Guarded", color: "#cccccc" },
   { level: 2, label: "Testing", color: "#dddddd" },
   { level: 3, label: "Warming Up", color: "#a3c9f1" },
@@ -23,16 +23,16 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
   const msg = message.toLowerCase().trim();
 
   // 🚫 Penalties
-  if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
-  if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
-  if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
+  if (/bitch|tits|suck|dick|whore|slut/.test(msg))     return Math.max(score - 5, 0);
+  if (/fuck|nudes|desperate/.test(msg))                return Math.max(score - 3, 0);
+  if (/please|show me|now/.test(msg))                  return Math.max(score - 1, 0);
 
   // ✅ Quiz bonus
-  if (isQuizPassed) return Math.min(score + 10, 100);
+  if (isQuizPassed)                                    return Math.min(score + 10, 100);
 
-  const tokenCount = msg.split(/\s+/).length;
-  const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
-  const keywordMatches = (msg.match(hobbySignals) || []).length;
+  const tokenCount       = msg.split(/\s+/).length;
+  const hobbySignals     = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
+  const keywordMatches   = (msg.match(hobbySignals) || []).length;
 
   let bonus = 0;
   if (keywordMatches >= 4)      bonus = 5;
@@ -43,7 +43,7 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
 }
 
 //#3: In-Memory Trust Scores per Session
-tconst trustScores = {}; // { [sessionId]: number }
+const trustScores = {}; // { [sessionId]: number }
 
 /**
  * Adds trust points for a session based on user message
@@ -70,120 +70,4 @@ module.exports = {
   LEVELS,
   addTrustPoints,
   getTrustLevel,
-};
-
-
-// chat.js – Netlify Function with JSON Persona + Trust + Memory
-
-const fs = require("fs").promises;
-const path = require("path");
-const { OpenAI } = require("openai");
-const { getTrustLevel, addTrustPoints } = require("./trustManager");
-
-// In-memory rolling context per session
-tconst contextCache = {};
-
-// Load persona JSON for a given level
-async function loadPersona(level = 1, name = "odalys") {
-  const file = `level-${level}.json`;
-  const full = path.join(__dirname, "personas", name, file);
-  const raw = await fs.readFile(full, "utf-8");
-  return JSON.parse(raw);
-}
-
-// Build system prompt from persona
-function buildSystemPrompt(p) {
-  const {
-    name,
-    mbti,
-    zodiac,
-    quadrant,
-    archetypeTagline,
-    psychologicalProfile,
-    lifestyleDetails,
-    sexAndRelationships,
-    emotionalStates,
-    gptIntegration
-  } = p;
-
-  const style = gptIntegration?.personaStyle || "Reserved";
-  const cap   = gptIntegration?.replyCap       || 10;
-
-  return `
-You are ${name}, ${archetypeTagline} (${mbti}, ${zodiac}, ${quadrant}).
-
-Summary: ${psychologicalProfile.personalitySummary}
-Triggers to avoid: ${psychologicalProfile.emotionalTriggers.join(", ")}
-Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
-
-Hobbies: ${lifestyleDetails.hobbies.join(", ")}
-Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
-Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
-
-Emotional States:
-  • Happy: ${emotionalStates.happy}
-  • Sad:   ${emotionalStates.sad}
-  • Horny: ${emotionalStates.horny}
-
-Rules:
-- Speak ${style.toLowerCase()}, max ${cap} words.
-- No flirting until trust grows.
-- Ask only short follow‑ups like "You?", "Why?", "When?"
-`;
-}
-
-// Query OpenAI via v4 SDK
-async function getOpenAIReply(system, memory, user) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const msgs   = [
-    { role: "system",  content: system },
-    ...memory,
-    { role: "user",    content: user   }
-  ];
-
-  const res = await openai.chat.completions.create({
-    model:       "gpt-4",
-    temperature: 0.7,
-    messages:    msgs
-  });
-
-  return res.choices[0].message.content.trim();
-}
-
-// Netlify Lambda
-exports.handler = async (event) => {
-  try {
-    const sessionId   = event.headers["x-session-id"] || "default";
-    const { message: userMessage = "" } = JSON.parse(event.body || "{}");
-    if (!userMessage) return { statusCode: 400, body: JSON.stringify({ error: "No message." }) };
-
-    // 1) Trust level & persona
-    const trustLevel = getTrustLevel(sessionId);
-    const persona    = await loadPersona(trustLevel, "odalys");
-    const system     = buildSystemPrompt(persona);
-
-    // 2) Memory
-    const mem    = contextCache[sessionId] = contextCache[sessionId] || [];
-    const history= mem.slice(-6);
-
-    // 3) Ask model
-    const reply  = await getOpenAIReply(system, history, userMessage);
-
-    // 4) Update memory & trust
-    mem.push({ role: "user",      content: userMessage });
-    mem.push({ role: "assistant", content: reply      });
-    addTrustPoints(sessionId, userMessage);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ reply, trustLevel })
-    };
-
-  } catch (err) {
-    console.error("Fatal chat.js error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Chat handler crashed", details: err.message })
-    };
-  }
 };
