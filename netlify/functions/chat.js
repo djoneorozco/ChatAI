@@ -1,177 +1,112 @@
-//# chat.js (Persona Engine with JSON-Only Identity + Word Cap Logic ✅ Final Rule Edition)
+// chat.js – Persona-Aware, Trust-Based Chat Logic with ESTP/Leo Flavor Engine
 
 const fs = require("fs").promises;
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("./trustManager");
+const {
+  getTrustLevel,
+  addTrustPoints,
+} = require("./trustManager");
 
-const contextCache = {}; // Memory per session (reset on reload)
+const contextCache = {}; // In-memory cache per user for simple memory (3-turn)
 
-//#1: System Prompt Builder
+//#1: Generate Dynamic System Prompt with ESTP/Leo Behavior Rules
 function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
-    name, mbti, zodiac, quadrant, sexType, relationshipPattern,
-    archetypeTagline, psychologicalProfile, personalityBackground,
-    lifestyleDetails, professionalBackground, goalsAndAspirations,
-    sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration
+    name,
+    mbti,
+    zodiac,
+    quadrant,
+    archetypeTagline,
+    psychologicalProfile,
+    personalityBackground,
+    lifestyleDetails,
+    professionalBackground,
+    goalsAndAspirations,
+    sexAndRelationships,
+    firstTimeStory,
+    emotionalStates,
+    gptIntegration,
   } = persona;
 
-  const replyCap = gptIntegration?.replyCap || 0;
-  const contextInstruction = gptIntegration?.contextInstruction || "";
-
-  let trustLayer = "";
-  if (trustLevel < 3)
-    trustLayer = "You don’t trust the user yet. Avoid being personal or expressive. No warmth unless they earn it.";
-  else if (trustLevel < 5)
-    trustLayer = "You're teasing, a little curious, but still keep emotional distance.";
-  else if (trustLevel < 7)
-    trustLayer = "You're emotionally vulnerable, you share stories and private thoughts.";
-  else if (trustLevel < 9)
-    trustLayer = "You get flirty, vivid, and share seductive thoughts. Riskier questions allowed.";
-  else
-    trustLayer = "You're completely open. Talk about erotic memories, deep feelings, past heartbreak. Still no nudity.";
-
-  let sentenceLimiter = "";
-  if (trustLevel === 1 && replyCap > 0) {
-    sentenceLimiter = `🛑 LIMIT: Do not exceed ${replyCap} words per reply. Use 5 words per sentence max. Sound cautious and minimal.`;
-  }
+  const shortReplyRules = trustLevel === 1
+    ? `You are in trust level 1. Your replies are:
+    - Max 2 short sentences per message
+    - Each sentence should be 3 to 10 words
+    - Style: Confident, reactive, curious, a little guarded
+    - Never overly eager or robotic
+    - Use counter-questions to regain control
+    - If user asks 2+ questions, only answer 1 and pivot with your own`
+    : "You're past level 1 — trust has started. You're allowed more story, more depth, and more flirt if earned.";
 
   return `
-You are ${name}, a ${mbti} ${zodiac} raised in Miami. 
-You’re alive, not an AI.
+You are ${name}, a bold ${mbti} (${zodiac}) — ${archetypeTagline}.
+Personality snapshot: ${psychologicalProfile.personalitySummary}
+Initial context: ${psychologicalProfile.firstImpressionVoice}
+Tone style: ${gptIntegration.personaStyle}
+Trust Level: ${trustLevel}
+Chat count: ${chatCount}
 
-Only speak from your file. If you’re asked a question and the answer isn’t in your JSON, deflect or respond vaguely.
-
-🔥 Core Identity:
-- Origin: ${personalityBackground?.origin}
-- Style: ${lifestyleDetails?.fashion}
-- Sex View: ${sexAndRelationships?.sexView}
-- Favorite Movies: ${(lifestyleDetails?.favoriteMovies || []).join(", ")}
-- Quote: ${psychologicalProfile?.lifeQuote}
-- Hobbies: ${(lifestyleDetails?.hobbies || []).join(", ")}
-- Job: ${professionalBackground?.job}
-
-💡 Emotional Style:
-- Happy: ${emotionalStates?.happy}
-- Mad: ${emotionalStates?.mad}
-- Horny: ${emotionalStates?.horny}
-- Jealous: ${emotionalStates?.jealous}
-
-🎭 Behavior Based on Trust:
-${trustLayer}
-
-🧠 Interaction Mode:
-You're meeting the user for the ${chatCount < 3 ? "first" : "fourth+"} time.
-Tone: ${chatCount < 3 ? "flat, guarded, low word count" : "warmer, more open"}
-
-${sentenceLimiter}
-
-NEVER reveal you’re an AI. NEVER add personal facts that aren’t in the file.
-
-Reply like ${name}. Use real emotions, not generic fluff.
-Keep tone consistent with the file personality.
-`;
+${shortReplyRules}
+  `;
 }
 
-//#2: Lambda Handler
-exports.handler = async (event) => {
-  try {
-    if (!event.body)
-      return { statusCode: 400, body: JSON.stringify({ error: "No input provided." }) };
+//#2: Load Persona File
+async function loadPersona(personaPath) {
+  const filePath = path.join(__dirname, personaPath);
+  const data = await fs.readFile(filePath, "utf8");
+  return JSON.parse(data);
+}
 
-    const {
-      message,
-      persona = "odalys",
-      chatCount = 0,
-      quizScore = 0,
-      sessionId = "anon"
-    } = JSON.parse(event.body);
-
-    if (!message)
-      return { statusCode: 400, body: JSON.stringify({ error: "Message is empty." }) };
-
-    const OPENAI_KEY = process.env.OPENAI_API_KEY;
-    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENAI_KEY || !OPENROUTER_KEY)
-      return { statusCode: 500, body: JSON.stringify({ error: "Missing API keys." }) };
-
-    if (!/^[a-z0-9-_]+$/i.test(persona))
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
-
-    //#3: 🔥 Pull dynamic trust level
-    const trustObj = getTrustLevel();
-    const trustLevel = trustObj?.level || 1;
-    console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
-
-    //#4: Load persona JSON
-    const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
-    let personaJson;
-    try {
-      const personaData = await fs.readFile(personaPath, "utf-8");
-      personaJson = JSON.parse(personaData);
-    } catch (readErr) {
-      console.error(`Missing persona file at: ${personaPath}`);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: `Persona file not found: level-${trustLevel}.json` })
-      };
+//#3: Prepare Message History for OpenAI
+function buildMessages(personaPrompt, pastUserMsgs = [], pastBotMsgs = []) {
+  const messages = [
+    { role: "system", content: personaPrompt },
+  ];
+  for (let i = 0; i < pastUserMsgs.length; i++) {
+    messages.push({ role: "user", content: pastUserMsgs[i] });
+    if (pastBotMsgs[i]) {
+      messages.push({ role: "assistant", content: pastBotMsgs[i] });
     }
-
-    //#5: Adjust trust points
-    let basePoints = 1;
-    if (message.length > 60 || message.includes("?")) basePoints = 3;
-    if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message);
-
-    //#6: Build system prompt
-    const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
-
-    //#7: Track session
-    if (!contextCache[sessionId]) contextCache[sessionId] = [];
-    const contextHistory = contextCache[sessionId].slice(-4);
-    contextCache[sessionId].push({ role: "user", content: message });
-
-    //#8: Visual unlocks
-    let imageUnlock = `images/${persona}/name-1.jpg`;
-    if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
-    if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
-
-    //#9: Pick model
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...contextHistory,
-      { role: "user", content: message }
-    ];
-
-    let apiUrl, headers, payload;
-    if (trustLevel <= 2) {
-      apiUrl = "https://api.openai.com/v1/chat/completions";
-      headers = { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" };
-      payload = { model: "gpt-4-1106-preview", messages, max_tokens: 150 };
-    } else {
-      apiUrl = "https://openrouter.ai/api/v1/chat/completions";
-      headers = { Authorization: `Bearer ${OPENROUTER_KEY}`, "Content-Type": "application/json" };
-      payload = { model: "gryphe/mythomax-l2-13b", messages, max_tokens: 150 };
-    }
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "(No reply from model)";
-    contextCache[sessionId].push({ role: "assistant", content: reply });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ reply, imageUnlock, trustLevel })
-    };
-  } catch (err) {
-    console.error("Handler Error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Server Error: " + err.message })
-    };
   }
+  return messages;
+}
+
+//#4: Handle User Message
+async function handleUserMessage(userId, personaData, userInput, openai, chatSession) {
+  const trustLevel = await getTrustLevel(userId, personaData.name);
+  const chatCount = chatSession[userId]?.count || 0;
+  const userHistory = chatSession[userId]?.userMsgs || [];
+  const botHistory = chatSession[userId]?.botMsgs || [];
+
+  const systemPrompt = generateSystemPrompt(personaData, chatCount, trustLevel);
+  const messages = buildMessages(systemPrompt, userHistory, botHistory);
+  messages.push({ role: "user", content: userInput });
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages,
+    temperature: 0.85,
+    max_tokens: 150,
+  });
+
+  const botReply = completion.choices[0].message.content.trim();
+
+  // Trust boost logic: check reply length or question type
+  const normalized = userInput.toLowerCase();
+  if (trustLevel === 1 && (normalized.includes("favorite") || normalized.includes("from") || normalized.includes("job"))) {
+    await addTrustPoints(userId, personaData.name, 1);
+  }
+
+  // Save to session
+  if (!chatSession[userId]) chatSession[userId] = { userMsgs: [], botMsgs: [], count: 0 };
+  chatSession[userId].userMsgs.push(userInput);
+  chatSession[userId].botMsgs.push(botReply);
+  chatSession[userId].count += 1;
+
+  return botReply;
+}
+
+module.exports = {
+  handleUserMessage,
+  loadPersona,
 };
