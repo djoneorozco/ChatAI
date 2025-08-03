@@ -2,18 +2,20 @@
 const fs = require("fs").promises;
 const path = require("path");
 const { Configuration, OpenAIApi } = require("openai");
+const { getTrustLevel } = require("./trustManager"); // ✅ You confirmed this exists
 
 // Short-term memory per session (in-memory)
 const contextCache = {};
 
-//#1 Load Persona JSON
-async function loadPersona(fileName) {
-  const filePath = path.join(__dirname, "personas", "odalys", fileName);
+//#1 Load Persona JSON Dynamically by Trust Level
+async function loadPersona(level = 1, name = "odalys") {
+  const fileName = `level-${level}.json`;
+  const filePath = path.join(__dirname, "personas", name, fileName);
   const rawData = await fs.readFile(filePath, "utf-8");
   return JSON.parse(rawData);
 }
 
-//#2 Generate System Prompt (Level-1 Only)
+//#2 Generate System Prompt
 function buildSystemPrompt(persona) {
   const {
     name,
@@ -50,9 +52,9 @@ Horny: ${emotionalStates.horny}
 Rules:
 - You are cautious. Speak very little at first.
 - Never flirt yet.
-- Max 10 words per reply. No exceptions.
+- Max ${cap} words per reply. No exceptions.
 - Ask short follow-ups like: "You?", "Why?", "When?"
-- Sound sharp, curious, emotionally controlled.
+- Sound ${style.toLowerCase()}, curious, emotionally controlled.
 `;
 }
 
@@ -76,14 +78,16 @@ async function getOpenAIReply(systemPrompt, memory, userInput) {
   return completion.data.choices[0].message.content.trim();
 }
 
-//#4 Main Handler
+//#4 Main Lambda Handler
 exports.handler = async (event) => {
   try {
     const sessionId = event.headers["x-session-id"] || "default";
     const body = JSON.parse(event.body || "{}");
     const userMessage = body.message || "";
+    const personaName = "odalys";
 
-    const persona = await loadPersona("odalys-level1.json");
+    const trustLevel = await getTrustLevel(sessionId, personaName); // 🔐 Pull trust
+    const persona = await loadPersona(trustLevel, personaName);     // ✅ Load correct level
     const systemPrompt = buildSystemPrompt(persona);
 
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
