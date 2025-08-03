@@ -1,6 +1,6 @@
 //# trustManager.js
 
-//#1: Trust Configuration
+// 1️⃣ Level definitions
 const LEVELS = [
   { level: 1, label: "Guarded", color: "#cccccc" },
   { level: 2, label: "Testing", color: "#dddddd" },
@@ -16,77 +16,82 @@ const LEVELS = [
 
 const TRUST_PER_LEVEL = 10;
 
-//#2: Trust Level Calculation
-function getTrustLevel(score) {
+// In-memory per-session scores
+const sessionScores = {};
+
+// Helper: get or init score
+function getScore(sessionId) {
+  return sessionScores[sessionId] || 0;
+}
+
+// Helper: clamp and store score
+function setScore(sessionId, score) {
+  sessionScores[sessionId] = Math.max(0, Math.min(100, score));
+}
+
+// 2️⃣ Compute numeric trust level (1–10)
+function getTrustLevel(sessionId) {
+  const score = getScore(sessionId);
   const level = Math.min(Math.floor(score / TRUST_PER_LEVEL) + 1, 10);
-  return LEVELS[level - 1];
+  return level;
 }
 
-function getTrustProgress(score) {
-  const level = getTrustLevel(score).level;
-  const base = (level - 1) * TRUST_PER_LEVEL;
-  const current = score - base;
-  const percent = Math.min((current / TRUST_PER_LEVEL) * 100, 100);
-  return { level, percent };
-}
-
-//#3: Message-Based Scoring Engine
-function updateTrustScore(currentScore, message, isQuizPassed = false) {
-  let score = currentScore;
-
-  if (!message || typeof message !== "string") return score;
+// 3️⃣ Update score based on message content
+function updateTrustScore(sessionId, message, isQuizPassed = false) {
+  let score = getScore(sessionId);
+  if (!message || typeof message !== "string") {
+    setScore(sessionId, score);
+    return;
+  }
 
   const msg = message.toLowerCase().trim();
 
-  // 🚫 Penalties for aggressive or explicit language
-  if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
-  if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
-  if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
+  // 🚫 Penalties
+  if (/bitch|tits|suck|dick|whore|slut/.test(msg)) {
+    score = Math.max(score - 5, 0);
+    setScore(sessionId, score);
+    return;
+  }
+  if (/fuck|nudes|desperate/.test(msg)) {
+    score = Math.max(score - 3, 0);
+    setScore(sessionId, score);
+    return;
+  }
+  if (/please|show me|now/.test(msg)) {
+    score = Math.max(score - 1, 0);
+    setScore(sessionId, score);
+    return;
+  }
 
-  // ✅ Rewards
-  if (isQuizPassed) return Math.min(score + 10, 100);
+  // ✅ Quiz bonus
+  if (isQuizPassed) {
+    score = Math.min(score + 10, 100);
+    setScore(sessionId, score);
+    return;
+  }
 
+  // 🍀 Positive engagement
   const tokenCount = msg.split(/\s+/).length;
-
-  // 🌟 Trust Trigger Keywords
   const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
   const keywordMatches = (msg.match(hobbySignals) || []).length;
 
   let bonus = 0;
-  if (keywordMatches >= 4) {
-    bonus = 5;
-  } else if (keywordMatches >= 2) {
-    bonus = 3;
-  } else {
-    bonus = tokenCount >= 15 ? 2 : 1;
-  }
+  if (keywordMatches >= 4) bonus = 5;
+  else if (keywordMatches >= 2) bonus = 3;
+  else bonus = tokenCount >= 15 ? 2 : 1;
 
-  return Math.min(score + bonus, 100);
+  score = Math.min(score + bonus, 100);
+  setScore(sessionId, score);
 }
 
-//#4: In-Memory Trust Score (temporary until DB)
-let currentTrust = 0;
-
-function addTrustPoints(message) {
-  currentTrust = updateTrustScore(currentTrust, message);
+// 4️⃣ (Optional) Reset or decay if needed
+function decayTrust(sessionId) {
+  const score = getScore(sessionId);
+  setScore(sessionId, score - 1);
 }
 
-function getCurrentTrustScore() {
-  return currentTrust;
-}
-
-//#5: Optional Decay Feature
-function decayTrust() {
-  currentTrust = Math.max(currentTrust - 1, 0);
-}
-
-//#6: Exports
 module.exports = {
-  LEVELS,
   getTrustLevel,
-  getTrustProgress,
   updateTrustScore,
-  addTrustPoints,
-  getCurrentTrustScore,
   decayTrust,
 };
