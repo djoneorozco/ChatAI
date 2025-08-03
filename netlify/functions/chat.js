@@ -1,105 +1,110 @@
-//# chat.js — Clean, Direct, JSON-Fueled Persona Engine (Level 1 Focus)
-
+//# chat.js – Clean Netlify Function using OpenAI SDK, JSON Persona, Trust + Memory
 const fs = require("fs").promises;
 const path = require("path");
-const { getTrustLevel, addTrustPoints } = require("./trustManager");
+const { Configuration, OpenAIApi } = require("openai");
 
-const { ChatCompletion } = require("openai");
-const openai = new ChatCompletion({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const contextCache = {}; // Short-term memory cache
+// Short-term memory per session (in-memory)
+const contextCache = {};
 
-//#1 Load Persona from JSON
-async function loadPersona(personaPath) {
-  const rawData = await fs.readFile(path.join(__dirname, personaPath), "utf-8");
+//#1 Load Persona JSON
+async function loadPersona(fileName) {
+  const filePath = path.join(__dirname, "personas", fileName);
+  const rawData = await fs.readFile(filePath, "utf-8");
   return JSON.parse(rawData);
 }
 
-//#2 Generate System Prompt from JSON
-function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
+//#2 Generate System Prompt (Level-1 Only)
+function buildSystemPrompt(persona) {
   const {
-    name, mbti, zodiac, quadrant, archetypeTagline,
-    psychologicalProfile, lifestyleDetails, sexAndRelationships,
-    emotionalStates, gptIntegration
+    name,
+    mbti,
+    zodiac,
+    quadrant,
+    archetypeTagline,
+    psychologicalProfile,
+    lifestyleDetails,
+    sexAndRelationships,
+    emotionalStates,
+    gptIntegration
   } = persona;
 
-  const wordCap = gptIntegration?.replyCap || 2;
-  const toneStyle = gptIntegration?.personaStyle || "Neutral";
-  const contextInstruction = gptIntegration?.contextInstruction || "";
-
-  // Layered trust behavior
-  let trustOverlay = "";
-  if (trustLevel <= 2) {
-    trustOverlay = `
-You're meeting the user for the first time. You're cautious.
-Only speak in natural 3–10 word sentences. No flirtation.
-Ask only short, organic questions like “You?” or “Why?”
-Never over-share. Never initiate deep convo.`;
-  }
+  const style = gptIntegration?.personaStyle || "Reserved";
+  const cap = gptIntegration?.replyCap || 10;
 
   return `
-You are ${name}, an emotionally real ESTP/Leo AI woman.
+You are ${name}, an emotionally intelligent AI persona.
 MBTI: ${mbti}, Zodiac: ${zodiac}, Archetype: ${archetypeTagline}, Quadrant: ${quadrant}
-Tone: ${toneStyle}
 
-Personality:
-${psychologicalProfile.personalitySummary}
-Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
-Triggers: ${psychologicalProfile.emotionalTriggers.join(", ")}
+Personality Summary: ${psychologicalProfile.personalitySummary}
+Triggers to avoid: ${psychologicalProfile.emotionalTriggers.join(", ")}
+Emotional Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
 Hobbies: ${lifestyleDetails.hobbies.join(", ")}
 Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
 Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
 
 Emotional States:
-Happy – ${emotionalStates.happy}
-Sad – ${emotionalStates.sad}
-Horny – ${emotionalStates.horny}
+Happy: ${emotionalStates.happy}
+Sad: ${emotionalStates.sad}
+Horny: ${emotionalStates.horny}
 
-Guidelines:
-- Speak like Odalys at Level 1 — cautious, short replies, emotionally minimal.
-- Never use more than 10 words per response.
-- Avoid compliments, jokes, storytelling.
-- Let user lead the tone — you're evaluating them.
-${trustOverlay}
-${contextInstruction}`.trim();
+Rules:
+- You are cautious. Speak very little at first.
+- Never flirt yet.
+- Max 10 words per reply. No exceptions.
+- Ask short follow-ups like: "You?", "Why?", "When?"
+- Sound sharp, curious, emotionally controlled.
+`;
 }
 
-//#3 Assemble Messages
-function buildMessages(systemPrompt, memory, newMessage) {
-  return [
+//#3 OpenAI Call
+async function getOpenAIReply(systemPrompt, memory, userInput) {
+  const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAIApi(configuration);
+
+  const messages = [
     { role: "system", content: systemPrompt },
-    ...memory.map(m => ({ role: m.role, content: m.content })),
-    { role: "user", content: newMessage }
+    ...memory,
+    { role: "user", content: userInput }
   ];
-}
 
-//#4 Chat Handler
-async function chatWithPersona(personaPath, sessionId, userMessage) {
-  const persona = await loadPersona(personaPath);
-  const trustLevel = await getTrustLevel(sessionId);
-  const memory = contextCache[sessionId] || [];
-
-  const systemPrompt = generateSystemPrompt(persona, memory.length, trustLevel);
-  const messages = buildMessages(systemPrompt, memory, userMessage);
-
-  const response = await openai.create({
+  const completion = await openai.createChatCompletion({
     model: "gpt-4",
-    messages,
-    temperature: 0.7
+    temperature: 0.7,
+    messages
   });
 
-  const reply = response.choices[0].message.content.trim();
-
-  // Update memory
-  memory.push({ role: "user", content: userMessage });
-  memory.push({ role: "assistant", content: reply });
-  if (memory.length > 6) memory.shift(); // simple short-term memory
-  contextCache[sessionId] = memory;
-
-  // Trust update
-  await addTrustPoints(sessionId, reply);
-  return reply;
+  return completion.data.choices[0].message.content.trim();
 }
 
-module.exports = { chatWithPersona };
+//#4 Main Handler
+exports.handler = async (event) => {
+  try {
+    const sessionId = event.headers["x-session-id"] || "default";
+    const body = JSON.parse(event.body || "{}");
+    const userMessage = body.message || "";
+
+    const persona = await loadPersona("odalys-level1.json");
+    const systemPrompt = buildSystemPrompt(persona);
+
+    if (!contextCache[sessionId]) contextCache[sessionId] = [];
+
+    const memory = contextCache[sessionId].slice(-6); // keep memory short
+
+    const reply = await getOpenAIReply(systemPrompt, memory, userMessage);
+
+    memory.push({ role: "user", content: userMessage });
+    memory.push({ role: "assistant", content: reply });
+    contextCache[sessionId] = memory;
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ reply })
+    };
+  } catch (err) {
+    console.error("Fatal chat.js error:", err.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Chat handler crashed", details: err.message })
+    };
+  }
+};
