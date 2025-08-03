@@ -10,65 +10,58 @@ const contextCache = {};
 
 /**
  * Load persona JSON for a given trust level and persona name
- * @param {number} level
- * @param {string} name
  */
 async function loadPersona(level = 1, name = "odalys") {
   const file = `level-${level}.json`;
   const full = path.join(__dirname, "personas", name, file);
   const raw  = await fs.readFile(full, "utf-8");
-  return JSON.parse(raw);
+  const p    = JSON.parse(raw);
+  console.log("🔍 loaded persona:", full, p);
+  return p;
 }
 
 /**
- * Build the system prompt from persona JSON
- * @param {object} p
+ * Build the system prompt from persona JSON,
+ * injecting greeting & origin up‐front
  */
 function buildSystemPrompt(p) {
-  const {
-    name,
-    mbti,
-    zodiac,
-    quadrant,
-    archetypeTagline,
-    psychologicalProfile,
-    lifestyleDetails,
-    sexAndRelationships,
-    emotionalStates,
-    gptIntegration
-  } = p;
+  let prompt = "";
 
-  const style = gptIntegration?.personaStyle || "Reserved";
-  const cap   = gptIntegration?.replyCap       || 10;
+  // 1) Custom greeting (e.g. "Hey. I'm Odalys.")
+  if (p.greeting) {
+    prompt += `${p.greeting}\n`;
+  }
 
-  return `
-You are ${name}, ${archetypeTagline} (${mbti}, ${zodiac}, ${quadrant}).
+  // 2) Origin / hometown
+  if (p.personalityBackground?.origin) {
+    prompt += `I’m from ${p.personalityBackground.origin}.\n\n`;
+  }
 
-Summary: ${psychologicalProfile.personalitySummary}
-Triggers to avoid: ${psychologicalProfile.emotionalTriggers.join(", ")}
-Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
+  // 3) Main persona scaffold
+  prompt += `You are ${p.name}, ${p.archetypeTagline} (${p.mbti}, ${p.zodiac}, ${p.quadrant}).\n\n`;
+  prompt += `Summary: ${p.psychologicalProfile.personalitySummary}\n`;
+  prompt += `Emotional needs: ${p.psychologicalProfile.emotionalNeeds.join(", ")}\n`;
+  prompt += `Triggers to avoid: ${p.psychologicalProfile.emotionalTriggers.join(", ")}\n\n`;
 
-Hobbies: ${lifestyleDetails.hobbies.join(", ")}
-Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
-Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
+  prompt += `Hobbies: ${p.lifestyleDetails.hobbies.join(", ")}\n`;
+  prompt += `Turn-ons: ${p.sexAndRelationships.turnOns.join(", ")}\n`;
+  prompt += `Turn-offs: ${p.sexAndRelationships.turnOffs.join(", ")}\n\n`;
 
-Emotional States:
-  • Happy: ${emotionalStates.happy}
-  • Sad:   ${emotionalStates.sad}
-  • Horny: ${emotionalStates.horny}
+  prompt += `Emotional States:\n`;
+  prompt += `  • Happy: ${p.emotionalStates.happy}\n`;
+  prompt += `  • Sad:   ${p.emotionalStates.sad}\n`;
+  prompt += `  • Horny: ${p.emotionalStates.horny}\n\n`;
 
-Rules:
-- Speak ${style.toLowerCase()}, max ${cap} words.
-- No flirting until trust grows.
-- Ask only short follow-ups like "You?", "Why?", "When?"
-`;
+  prompt += `Rules:\n`;
+  prompt += `- Speak ${p.gptIntegration.personaStyle.toLowerCase() || "reserved"}, max ${p.gptIntegration.replyCap || 10} words.\n`;
+  prompt += `- No flirting until trust grows.\n`;
+  prompt += `- Ask only short follow-ups like "You?", "Why?", "When?"\n`;
+
+  return prompt;
 }
 
 /**
  * Query OpenAI via v4 SDK
- * @param {string} system
- * @param {Array}  memory
- * @param {string} user
  */
 async function getOpenAIReply(system, memory, user) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
