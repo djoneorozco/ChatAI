@@ -1,78 +1,51 @@
 // netlify/functions/chat.js
+'use strict';
 
-const fs   = require("fs").promises;
-const path = require("path");
-const { OpenAI } = require("openai");
-const { getTrustLevel, addTrustPoints } = require("./trustManager");
+const { OpenAI } = require('openai');
+const { getTrustLevel, addTrustPoints } = require('./trustManager');
 
+// In-memory per-session context
 const contextCache = {};
 
-//––– DEBUG: on cold start, log where we are and what files we have –––
-console.log("⚙️  chat.js loaded");
-console.log("  process.cwd() =", process.cwd());
-console.log("  __dirname        =", __dirname);
-
-// Load persona JSON for a given trust level and persona name
-async function loadPersona(level = 1, name = "odalys") {
-  const personaDir = path.join(__dirname, "personas", name);
-  console.log(`🔍 personaDir = ${personaDir}`);
-  try {
-    const files = await fs.readdir(personaDir);
-    console.log("📂 files in personaDir:", files);
-  } catch (err) {
-    console.error("❌ readdir error on personaDir:", err);
-  }
-
-  const fileName = `level-${level}.json`;
-  const fullPath = path.join(personaDir, fileName);
-  console.log(`🔗 Attempting to read JSON at: ${fullPath}`);
-  try {
-    const raw = await fs.readFile(fullPath, "utf-8");
-    console.log("✅ JSON read successful");
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("❌ Failed to load persona JSON:", err);
-    throw err;
-  }
+/**
+ * Load a persona JSON at compile time via require().
+ * esbuild will bundle these files so there’s never an ENOENT.
+ */
+function loadPersona(level = 1, name = 'odalys') {
+  // matches netlify/functions/personas/odalys/level-1.json, level-2.json, etc.
+  return require(`./personas/${name}/level-${level}.json`);
 }
 
-// Build the system prompt from persona JSON
+/**
+ * Build the system prompt from persona JSON.
+ */
 function buildSystemPrompt(p) {
-  console.log("📝 buildSystemPrompt using persona:", p.name, "level:", p.level);
   const {
     name,
-    archetypeTagline,
     mbti,
     zodiac,
     quadrant,
-    psychologicalProfile = {},
-    lifestyleDetails = {},
-    sexAndRelationships = {},
-    emotionalStates = {},
-    gptIntegration = {}
+    archetypeTagline,
+    psychologicalProfile,
+    lifestyleDetails,
+    sexAndRelationships,
+    emotionalStates,
+    gptIntegration
   } = p;
 
-  const style = gptIntegration.personaStyle || "Reserved";
-  const cap   = gptIntegration.replyCap       || 12;
-
-  // If any of these arrays are missing, guard against errors
-  const triggers = (psychologicalProfile.emotionalTriggers || []).join(", ");
-  const needs    = (psychologicalProfile.emotionalNeeds    || []).join(", ");
-  const hobbies  = (lifestyleDetails.hobbies || []).join(", ");
-  const turnOns  = (sexAndRelationships.turnOns || []).join(", ");
-  const turnOffs = (sexAndRelationships.turnOffs || []).join(", ");
+  const style = gptIntegration?.personaStyle || 'Reserved';
+  const cap   = gptIntegration?.replyCap       || 10;
 
   return `
-You are ${name} — ${archetypeTagline}.
-Type: ${mbti}, ${zodiac}, ${quadrant}.
+You are ${name}, ${archetypeTagline} (${mbti}, ${zodiac}, ${quadrant}).
 
-Summary: ${psychologicalProfile.personalitySummary || "(none)"}
-Triggers to avoid: ${triggers}
-Needs: ${needs}
+Summary: ${psychologicalProfile.personalitySummary}
+Triggers to avoid: ${psychologicalProfile.emotionalTriggers.join(', ')}
+Needs: ${psychologicalProfile.emotionalNeeds.join(', ')}
 
-Hobbies: ${hobbies}
-Turn-ons: ${turnOns}
-Turn-offs: ${turnOffs}
+Hobbies: ${lifestyleDetails.hobbies.join(', ')}
+Turn-ons: ${sexAndRelationships.turnOns.join(', ')}
+Turn-offs: ${sexAndRelationships.turnOffs.join(', ')}
 
 Emotional States:
   • Happy: ${emotionalStates.happy}
@@ -80,71 +53,82 @@ Emotional States:
   • Horny: ${emotionalStates.horny}
 
 Rules:
-- Speak ${style.toLowerCase()}, max ${cap} words per reply.
+- Speak ${style.toLowerCase()}, max ${cap} words.
 - No flirting until trust grows.
-- Ask only short follow-ups ("You?", "Why?", "When?").
+- Ask only short follow-ups like "You?", "Why?", "When?"
 `.trim();
 }
 
-// Query OpenAI via v4 SDK
-async function getOpenAIReply(system, memory, user) {
-  console.log("🤖 getOpenAIReply() → system prompt length:", system.length);
+/**
+ * Fire off the request to OpenAI.
+ */
+async function getOpenAIReply(systemPrompt, memory, userMessage) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const msgs = [
-    { role: "system",  content: system },
+  const messages = [
+    { role: 'system',  content: systemPrompt },
     ...memory,
-    { role: "user",    content: user    }
+    { role: 'user',    content: userMessage }
   ];
-  console.log("   messages:", msgs.map(m=>m.role));
 
   const res = await openai.chat.completions.create({
-    model:       "gpt-4",
+    model:       'gpt-4',
     temperature: 0.7,
-    messages:    msgs
+    messages
   });
-  console.log("✅ OpenAI response received");
+
   return res.choices[0].message.content.trim();
 }
 
-// Lambda entrypoint
+/**
+ * Netlify Function handler
+ */
 exports.handler = async (event) => {
+  console.info('⚙️  chat.js loaded');
   try {
-    console.log("📨 New request:", event.path);
-    const sessionId = event.headers["x-session-id"] || "default";
-    const { message: userMessage = "" } = JSON.parse(event.body || "{}");
-    console.log(`  sessionId="${sessionId}", userMessage="${userMessage}"`);
+    const sessionId = event.headers['x-session-id'] || 'default';
+    const { message: userMessage = '' } = JSON.parse(event.body || '{}');
 
-    if (!userMessage) {
-      console.warn("⚠️  No user message in payload");
-      return { statusCode: 400, body: JSON.stringify({ error: "No message." }) };
+    if (!userMessage.trim()) {
+      console.warn('⚠️  No message provided');
+      return { statusCode: 400, body: 'No message provided' };
     }
+    console.info('📝 userMessage=', userMessage);
 
-    // 1) Trust level & persona
+    // 1) Trust level → load the right JSON
     const trustLevel = getTrustLevel(sessionId);
-    console.log("  getTrustLevel →", trustLevel);
-    const persona  = await loadPersona(trustLevel, "odalys");
-    const system   = buildSystemPrompt(persona);
+    console.info('🔒 trustLevel=', trustLevel);
+    const persona = loadPersona(trustLevel, 'odalys');
+    console.info('👤 loaded persona:', persona.name, 'level', persona.level);
 
     // 2) Rolling memory
-    const mem     = (contextCache[sessionId] = contextCache[sessionId] || []);
+    const mem = (contextCache[sessionId] = contextCache[sessionId] || []);
     const history = mem.slice(-6);
-    console.log("  history length →", history.length);
+    console.info('📚 history length=', history.length);
 
-    // 3) Query
-    const reply = await getOpenAIReply(system, history, userMessage);
+    // 3) Build the prompt
+    const systemPrompt = buildSystemPrompt(persona);
+    console.info('🛠 systemPrompt length=', systemPrompt.length);
 
-    // 4) Update memory & trust
-    mem.push({ role: "user",      content: userMessage });
-    mem.push({ role: "assistant", content: reply       });
+    // 4) Query OpenAI
+    const reply = await getOpenAIReply(systemPrompt, history, userMessage);
+    console.info('✅ OpenAI reply received');
+
+    // 5) Update memory & trust
+    mem.push({ role: 'user',      content: userMessage });
+    mem.push({ role: 'assistant', content: reply       });
     addTrustPoints(sessionId, userMessage);
-    console.log("  addTrustPoints, new trustLevel →", getTrustLevel(sessionId));
+    console.info('✏️  addTrustPoints → new trustLevel=', getTrustLevel(sessionId));
 
-    return { statusCode: 200, body: JSON.stringify({ reply, trustLevel }) };
+    // 6) Return the result
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ reply, trustLevel })
+    };
   } catch (err) {
-    console.error("💥 Fatal chat.js error:", err);
+    console.error('💥 Fatal chat error:', err.stack || err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Chat handler crashed", details: err.message })
+      body: 'Internal server error'
     };
   }
 };
