@@ -1,114 +1,84 @@
 // netlify/functions/chat.js
 
-const fs = require("fs").promises;
-const path = require("path");
+const fs       = require("fs").promises;
+const path     = require("path");
 const { OpenAI } = require("openai");
 const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-// In-memory conversation memory per session
+// In‐memory context: { [sessionId]: [ {role,content}, … ] }
 const contextCache = {};
 
-// Load persona JSON based on trust level
-async function loadPersona(level, name = "odalys") {
-  const fileName = `level-${level}.json`;
-  const fullPath = path.join(__dirname, "personas", name, fileName);
-  console.log("🔍 loadPersona:", fullPath);
-  const raw = await fs.readFile(fullPath, "utf-8");
-  return JSON.parse(raw);
-}
+const PERSONA_NAME = "odalys";
+const PERSONA_DIR  = path.join(__dirname, "personas", PERSONA_NAME);
 
-// Build a concise system prompt from the persona
-function buildSystemPrompt(p) {
-  return (
-    `You are ${p.name}, ${p.archetypeTagline}.
-Your current job is: ${p.professionalBackground.job}.
-${p.greeting}
-${p.gptIntegration.contextInstruction}`
-  ).trim();
-}
-
-// Call OpenAI to get a chat reply
-async function getOpenAIReply(systemPrompt, history, userMessage) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const messages = [
-    { role: "system", content: systemPrompt },
-    ...history,
-    { role: "user", content: userMessage }
-  ];
-  console.log("📡 OpenAI call roles:", messages.map(m => m.role));
-  const res = await openai.chat.completions.create({
-    model: "gpt-4",
-    temperature: 0.7,
-    messages
-  });
-  return res.choices[0].message.content.trim();
-}
-
-// Netlify function handler
+/**
+ * Health‐check and chat entrypoint
+ */
 exports.handler = async (event) => {
-  console.log("⚙️ chat.js invoked");
+  console.info("⚙️ chat.js loaded");
+  console.info("📂 process.cwd() =", process.cwd());
+  console.info("📂 __dirname    =", __dirname);
 
-  // --- Health check: list persona JSON files ---
-  if (event.queryStringParameters?.health) {
-    const personaDir = path.join(__dirname, "personas", "odalys");
-    try {
-      const files = await fs.readdir(personaDir);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ personaDir, files })
-      };
-    } catch (err) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Health check failed", details: err.message })
-      };
+  // GET → health check
+  if (event.httpMethod === "GET") {
+    return { statusCode: 200, body: "OK" };
+  }
+
+  // Only POST beyond here
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  try {
+    const body = JSON.parse(event.body || "{}");
+    const userMessage = (body.message || "").trim();
+    if (!userMessage) {
+      return { statusCode: 400, body: JSON.stringify({ error: "No message provided" }) };
     }
-  }
 
-  // --- Parse request body ---
-  let userMessage = "";
-  try {
-    const data = JSON.parse(event.body || "{}");
-    userMessage = (data.message || "").trim();
-  } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON" }) };
-  }
-  if (!userMessage) {
-    return { statusCode: 400, body: JSON.stringify({ error: "No message provided" }) };
-  }
-  const sessionId = event.headers["x-session-id"] || "default";
-  console.log("📨 request", { sessionId, userMessage });
+    // derive a session ID (you can swap this for a real user token)
+    const sessionId = event.headers["x-session-id"] || "default";
+    console.info("📩 New request:", sessionId, `"${userMessage}"`);
 
-  try {
-    // --- Determine trust level and load persona ---
+    // ---- 1) Trust level ----
     const trustLevel = getTrustLevel(sessionId);
-    const persona = await loadPersona(trustLevel);
-    console.log("📥 persona.job:", persona.professionalBackground.job);
+    console.info("🔒 trustLevel =", trustLevel);
 
-    // --- Build prompt ---
+    // ---- 2) Load persona JSON for this trust level ----
+    // Files are named level-1.json, level-2.json, etc
+    const personaFile = path.join(PERSONA_DIR, `level-${trustLevel}.json`);
+    console.info("📖 Loading persona JSON from:", personaFile);
+    const personaRaw = await fs.readFile(personaFile, "utf-8");
+    const persona    = JSON.parse(personaRaw);
+    console.info("✅ Persona loaded:", persona.name, "level", persona.level);
+
+    // ---- 3) Build system prompt ----
     const systemPrompt = buildSystemPrompt(persona);
-    console.log("📝 systemPrompt:\n", systemPrompt);
+    console.info("📝 systemPrompt length =", systemPrompt.length);
 
-    // --- Manage memory ---
-    const mem = contextCache[sessionId] = contextCache[sessionId] || [];
-    const history = mem.slice(-6);
+    // ---- 4) Rolling memory ----
+    const history = contextCache[sessionId] = contextCache[sessionId] || [];
+    const memory  = history.slice(-6); // last 6 messages
+    console.info("🗂 history length →", memory.length);
 
-    // --- Query OpenAI ---
-    const reply = await getOpenAIReply(systemPrompt, history, userMessage);
-    console.log("✅ OpenAI reply:", reply);
+    // ---- 5) Query OpenAI ----
+    const reply = await getOpenAIReply(systemPrompt, memory, userMessage);
+    console.info("✅ OpenAI reply received");
 
-    // --- Update memory & trust ---
-    mem.push({ role: "user", content: userMessage });
-    mem.push({ role: "assistant", content: reply });
+    // ---- 6) Push into memory + update trust ----
+    history.push({ role: "user",    content: userMessage });
+    history.push({ role: "assistant", content: reply       });
     addTrustPoints(sessionId, userMessage);
+    console.info("🔼 addTrustPoints → new trustLevel =", getTrustLevel(sessionId));
 
+    // ---- 7) Return ----
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply, trustLevel })
+      body: JSON.stringify({ reply, trustLevel: getTrustLevel(sessionId) })
     };
 
   } catch (err) {
-    console.error("💥 Handler error:", err);
+    console.error("❌ chat.js error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Internal server error", details: err.message })
@@ -116,3 +86,50 @@ exports.handler = async (event) => {
   }
 };
 
+/**
+ * Construct the system prompt from persona JSON
+ */
+function buildSystemPrompt(p) {
+  // pick and choose whatever fields you need
+  const {
+    name, archetypeTagline, mbti, zodiac, level,
+    psychologicalProfile, lifestyleDetails, gptIntegration
+  } = p;
+
+  const style = gptIntegration.personaStyle || "Reserved";
+  const cap   = gptIntegration.replyCap       || 10;
+
+  return `
+You are ${name}, ${archetypeTagline} (${mbti}, ${zodiac}). Trust Level: ${level}
+
+Summary: ${psychologicalProfile.personalitySummary}
+Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
+Triggers: ${psychologicalProfile.emotionalTriggers.join(", ")}
+
+Hobbies: ${lifestyleDetails.hobbies.join(", ")}
+Rules:
+- Speak in a ${style.toLowerCase()} tone, max ${cap} words.
+- Ask only short follow-ups (e.g. "You?", "Why?", "When?").
+- No flirtation until trust grows.
+`.trim();
+}
+
+/**
+ * Send a chat completion request to OpenAI
+ */
+async function getOpenAIReply(system, memory, user) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const messages = [
+    { role: "system",  content: system },
+    ...memory,
+    { role: "user",    content: user   }
+  ];
+
+  const res = await openai.chat.completions.create({
+    model:       "gpt-4",
+    temperature: 0.7,
+    messages
+  });
+
+  return res.choices?.[0]?.message?.content.trim() || "(empty response)";
+}
