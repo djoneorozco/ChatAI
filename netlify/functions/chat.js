@@ -1,104 +1,103 @@
-//# chat.js — Clean Version: No LangChain, Full Persona Logic, Level-1 Ready
+//# chat.js — Clean, Direct, JSON-Fueled Persona Engine (Level 1 Focus)
 
 const fs = require("fs").promises;
 const path = require("path");
-const { Configuration, OpenAIApi } = require("openai");
 const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-const contextCache = {};
+const { ChatCompletion } = require("openai");
+const openai = new ChatCompletion({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const contextCache = {}; // Short-term memory cache
 
 //#1 Load Persona from JSON
 async function loadPersona(personaPath) {
-  const fullPath = path.join(__dirname, personaPath);
-  const raw = await fs.readFile(fullPath, "utf-8");
-  return JSON.parse(raw);
+  const rawData = await fs.readFile(path.join(__dirname, personaPath), "utf-8");
+  return JSON.parse(rawData);
 }
 
-//#2 Generate System Prompt
-function generateSystemPrompt(persona, trustLevel = 1) {
+//#2 Generate System Prompt from JSON
+function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const {
     name, mbti, zodiac, quadrant, archetypeTagline,
     psychologicalProfile, lifestyleDetails, sexAndRelationships,
     emotionalStates, gptIntegration
   } = persona;
 
-  const style = gptIntegration?.personaStyle || "Guarded";
-  const wordCap = trustLevel <= 2 ? 10 : 30; // We'll soft-enforce this later
-  const trustOverlay = trustLevel <= 2
-    ? `You're just meeting the user. Odalys doesn’t overshare. Replies must be under 10 words.`
-    : `You trust the user more now. Speak more freely.`;
+  const wordCap = gptIntegration?.replyCap || 2;
+  const toneStyle = gptIntegration?.personaStyle || "Neutral";
+  const contextInstruction = gptIntegration?.contextInstruction || "";
+
+  // Layered trust behavior
+  let trustOverlay = "";
+  if (trustLevel <= 2) {
+    trustOverlay = `
+You're meeting the user for the first time. You're cautious.
+Only speak in natural 3–10 word sentences. No flirtation.
+Ask only short, organic questions like “You?” or “Why?”
+Never over-share. Never initiate deep convo.`;
+  }
 
   return `
-You are ${name}, an emotionally sharp and bold ESTP/Leo woman.
+You are ${name}, an emotionally real ESTP/Leo AI woman.
 MBTI: ${mbti}, Zodiac: ${zodiac}, Archetype: ${archetypeTagline}, Quadrant: ${quadrant}
+Tone: ${toneStyle}
 
-Tone Style: ${style}
-${trustOverlay}
-
-Key Traits:
-- Summary: ${psychologicalProfile.personalitySummary}
-- Triggers: ${psychologicalProfile.emotionalTriggers.join(", ")}
-- Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
-- Hobbies: ${lifestyleDetails.hobbies.join(", ")}
-- Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
-- Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
+Personality:
+${psychologicalProfile.personalitySummary}
+Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
+Triggers: ${psychologicalProfile.emotionalTriggers.join(", ")}
+Hobbies: ${lifestyleDetails.hobbies.join(", ")}
+Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
+Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
 
 Emotional States:
-- Happy: ${emotionalStates.happy}
-- Sad: ${emotionalStates.sad}
-- Horny: ${emotionalStates.horny}
+Happy – ${emotionalStates.happy}
+Sad – ${emotionalStates.sad}
+Horny – ${emotionalStates.horny}
 
-Instructions:
-- Respond in Odalys's voice.
-- Trust level is ${trustLevel}.
-- Until trust > 2, speak in short sentences (3–10 words).
-- Do not flirt yet.
-- Ask only short follow-up questions like "You?" or "Why?"
-  `.trim();
+Guidelines:
+- Speak like Odalys at Level 1 — cautious, short replies, emotionally minimal.
+- Never use more than 10 words per response.
+- Avoid compliments, jokes, storytelling.
+- Let user lead the tone — you're evaluating them.
+${trustOverlay}
+${contextInstruction}`.trim();
 }
 
-//#3 Format Messages for OpenAI
-function formatMessages(systemPrompt, memory, newMessage) {
+//#3 Assemble Messages
+function buildMessages(systemPrompt, memory, newMessage) {
   return [
     { role: "system", content: systemPrompt },
-    ...memory.map(msg => ({ role: msg.role, content: msg.content })),
+    ...memory.map(m => ({ role: m.role, content: m.content })),
     { role: "user", content: newMessage }
   ];
 }
 
-//#4 Main Chat Handler
+//#4 Chat Handler
 async function chatWithPersona(personaPath, sessionId, userMessage) {
   const persona = await loadPersona(personaPath);
   const trustLevel = await getTrustLevel(sessionId);
   const memory = contextCache[sessionId] || [];
 
-  const systemPrompt = generateSystemPrompt(persona, trustLevel);
-  const messages = formatMessages(systemPrompt, memory, userMessage);
+  const systemPrompt = generateSystemPrompt(persona, memory.length, trustLevel);
+  const messages = buildMessages(systemPrompt, memory, userMessage);
 
-  const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
-  const openai = new OpenAIApi(configuration);
-
-  const completion = await openai.createChatCompletion({
+  const response = await openai.create({
     model: "gpt-4",
-    temperature: 0.7,
-    messages
+    messages,
+    temperature: 0.7
   });
 
-  let reply = completion.data.choices[0].message.content.trim();
+  const reply = response.choices[0].message.content.trim();
 
-  // Soft enforcement of word limit if trust is low
-  if (trustLevel <= 2) {
-    const wordCount = reply.split(/\s+/).length;
-    if (wordCount > 10) {
-      const cut = reply.split(" ").slice(0, 10).join(" ") + "...";
-      reply = cut;
-    }
-  }
-
+  // Update memory
   memory.push({ role: "user", content: userMessage });
   memory.push({ role: "assistant", content: reply });
-  contextCache[sessionId] = memory.slice(-6); // cap memory
+  if (memory.length > 6) memory.shift(); // simple short-term memory
+  contextCache[sessionId] = memory;
 
+  // Trust update
   await addTrustPoints(sessionId, reply);
   return reply;
 }
