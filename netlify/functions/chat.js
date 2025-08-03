@@ -1,4 +1,4 @@
-//# chat.js (Persona Engine with Trust-Level JSON Loading ✅ Final Rule Edition)
+//# chat.js (Persona Engine with Level-1 Word Cap Logic ✅ Final Rule Edition)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -15,6 +15,9 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
     sexAndRelationships, emotionalStates, gameplayFeatures, gptIntegration
   } = persona;
 
+  const replyCap = gptIntegration?.replyCap || 0;
+  const contextInstruction = gptIntegration?.contextInstruction || "";
+
   let trustLayer = "";
   if (trustLevel < 3) trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
   else if (trustLevel < 5) trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
@@ -22,9 +25,16 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   else if (trustLevel < 9) trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
   else trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
 
+  let sentenceLimiter = "";
+  if (trustLevel === 1 && replyCap > 0) {
+    sentenceLimiter = `🚫 Limit: Never use more than ${replyCap} sentences per reply. No more than 8 words per sentence. Keep everything brief, cold, and real.`;
+  }
+
   return `
 You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
 You are not an AI. You are alive in this moment.
+
+${contextInstruction}
 
 💫 Persona Framework:
 - MBTI: ${mbti}
@@ -72,7 +82,10 @@ Vision: ${goalsAndAspirations?.fiveYears}
 
 🌡 Trust Level Layer: ${trustLayer}
 
-Now respond like ${name} — fast, fiery, clever. 2–4 lines. React with soul. NEVER say you're an AI.
+${sentenceLimiter}
+
+Now respond like ${name} — fast, fiery, clever. Only 2–4 lines unless trust grows.
+NEVER say you're an AI.
 `;
 }
 
