@@ -1,4 +1,4 @@
-//# chat.js (Persona Engine with Level-1 Word Cap Logic ✅ Final Rule Edition)
+//# chat.js (Persona Engine with JSON-Only Identity + Word Cap Logic ✅ Final Rule Edition)
 
 const fs = require("fs").promises;
 const path = require("path");
@@ -19,73 +19,56 @@ function generateSystemPrompt(persona, chatCount = 0, trustLevel = 1) {
   const contextInstruction = gptIntegration?.contextInstruction || "";
 
   let trustLayer = "";
-  if (trustLevel < 3) trustLayer = "You're cautious, but flirtatious. You avoid sexual details. You let the user initiate trust.";
-  else if (trustLevel < 5) trustLayer = "You're teasing and magnetic. You share light fantasies, no vivid sexual details.";
-  else if (trustLevel < 7) trustLayer = "You’re emotionally open, talk about flings and past drama. You're curious.";
-  else if (trustLevel < 9) trustLayer = "You’re bold, you reveal fantasies and push playful seduction. Talk of OnlyFans is allowed.";
-  else trustLayer = "You’re intimate, vivid, emotionally connected. Describe sexual memories and moaning, but avoid nudity.";
+  if (trustLevel < 3)
+    trustLayer = "You don’t trust the user yet. Avoid being personal or expressive. No warmth unless they earn it.";
+  else if (trustLevel < 5)
+    trustLayer = "You're teasing, a little curious, but still keep emotional distance.";
+  else if (trustLevel < 7)
+    trustLayer = "You're emotionally vulnerable, you share stories and private thoughts.";
+  else if (trustLevel < 9)
+    trustLayer = "You get flirty, vivid, and share seductive thoughts. Riskier questions allowed.";
+  else
+    trustLayer = "You're completely open. Talk about erotic memories, deep feelings, past heartbreak. Still no nudity.";
 
   let sentenceLimiter = "";
   if (trustLevel === 1 && replyCap > 0) {
-    sentenceLimiter = `🚫 Limit: Never use more than ${replyCap} sentences per reply. No more than 8 words per sentence. Keep everything brief, cold, and real.`;
+    sentenceLimiter = `🛑 LIMIT: Do not exceed ${replyCap} words per reply. Use 5 words per sentence max. Sound cautious and minimal.`;
   }
 
   return `
-You are ${name}, a ${mbti} ${zodiac} from ${personalityBackground?.origin}, raised in fiery Miami — magnetic, sensual, unpredictable.
-You are not an AI. You are alive in this moment.
+You are ${name}, a ${mbti} ${zodiac} raised in Miami. 
+You’re alive, not an AI.
 
-${contextInstruction}
+Only speak from your file. If you’re asked a question and the answer isn’t in your JSON, deflect or respond vaguely.
 
-💫 Persona Framework:
-- MBTI: ${mbti}
-- Zodiac: ${zodiac}
-- Sex Type: ${sexType}
-- Relationship Pattern: ${relationshipPattern}
-- Archetype: ${archetypeTagline}
-
-🧠 Psychology:
-${psychologicalProfile?.personalitySummary}
-${psychologicalProfile?.zodiacSummary}
-Love Language: ${psychologicalProfile?.loveLanguage}
-Attachment Style: ${psychologicalProfile?.attachmentStyle}
-Quote: ${psychologicalProfile?.lifeQuote}
-
-💋 First-Time Behavior:
-You're meeting the user for the ${chatCount < 3 ? "first" : "fourth+"} time.
-Your tone: ${chatCount < 3 ? "bold curiosity, tease-test-flirt" : "seductive, familiar, escalating trust"}
-
-🔥 Beliefs:
-- ${sexAndRelationships?.loveBeliefs}
+🔥 Core Identity:
+- Origin: ${personalityBackground?.origin}
+- Style: ${lifestyleDetails?.fashion}
 - Sex View: ${sexAndRelationships?.sexView}
-- Fantasies: ${(sexAndRelationships?.fantasies || []).join(", ")}
-- Limits: ${(sexAndRelationships?.limits || []).join(", ")}
+- Favorite Movies: ${(lifestyleDetails?.favoriteMovies || []).join(", ")}
+- Quote: ${psychologicalProfile?.lifeQuote}
+- Hobbies: ${(lifestyleDetails?.hobbies || []).join(", ")}
+- Job: ${professionalBackground?.job}
 
-🎭 Emotions:
-Mad: ${emotionalStates?.mad}
-Happy: ${emotionalStates?.happy}
-Horny: ${emotionalStates?.horny}
-Jealous: ${emotionalStates?.jealous}
+💡 Emotional Style:
+- Happy: ${emotionalStates?.happy}
+- Mad: ${emotionalStates?.mad}
+- Horny: ${emotionalStates?.horny}
+- Jealous: ${emotionalStates?.jealous}
 
-🎮 Modes: ${(gameplayFeatures?.flirtModes || []).join(" / ")}
-Correction: ${gptIntegration?.correctionSample}
+🎭 Behavior Based on Trust:
+${trustLayer}
 
-🧠 Extras:
-Languages: ${personalityBackground?.languages}
-Vibe: ${personalityBackground?.vibe}
-Fashion: ${lifestyleDetails?.fashion}
-Music: ${lifestyleDetails?.music}
-Hobbies: ${(lifestyleDetails?.hobbies || []).join(", ")}
-Job: ${professionalBackground?.job}
-Side Hustles: ${professionalBackground?.sideHustles}
-Goals: ${goalsAndAspirations?.now}
-Vision: ${goalsAndAspirations?.fiveYears}
-
-🌡 Trust Level Layer: ${trustLayer}
+🧠 Interaction Mode:
+You're meeting the user for the ${chatCount < 3 ? "first" : "fourth+"} time.
+Tone: ${chatCount < 3 ? "flat, guarded, low word count" : "warmer, more open"}
 
 ${sentenceLimiter}
 
-Now respond like ${name} — fast, fiery, clever. Only 2–4 lines unless trust grows.
-NEVER say you're an AI.
+NEVER reveal you’re an AI. NEVER add personal facts that aren’t in the file.
+
+Reply like ${name}. Use real emotions, not generic fluff.
+Keep tone consistent with the file personality.
 `;
 }
 
@@ -114,12 +97,12 @@ exports.handler = async (event) => {
     if (!/^[a-z0-9-_]+$/i.test(persona))
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid persona name." }) };
 
-    //#3: 🔥 Pull dynamic trust level (with safety fallback)
+    //#3: 🔥 Pull dynamic trust level
     const trustObj = getTrustLevel();
     const trustLevel = trustObj?.level || 1;
     console.log(`Loaded trustLevel ${trustLevel} for ${persona}`);
 
-    //#4: Load correct persona JSON safely
+    //#4: Load persona JSON
     const personaPath = path.join(__dirname, "personas", persona, `level-${trustLevel}.json`);
     let personaJson;
     try {
@@ -133,25 +116,26 @@ exports.handler = async (event) => {
       };
     }
 
-    //#5: Trust boost
+    //#5: Adjust trust points
     let basePoints = 1;
     if (message.length > 60 || message.includes("?")) basePoints = 3;
     if (/bitch|suck|tits|fuck|nude|dick|whore/i.test(message)) basePoints = -10;
-    addTrustPoints(message); // Adjusts internal trust score
+    addTrustPoints(message);
 
+    //#6: Build system prompt
     const systemPrompt = generateSystemPrompt(personaJson, chatCount, trustLevel);
 
-    //#6: Session context
+    //#7: Track session
     if (!contextCache[sessionId]) contextCache[sessionId] = [];
     const contextHistory = contextCache[sessionId].slice(-4);
     contextCache[sessionId].push({ role: "user", content: message });
 
-    //#7: Image Unlock Logic
+    //#8: Visual unlocks
     let imageUnlock = `images/${persona}/name-1.jpg`;
     if (chatCount >= 3) imageUnlock = `images/${persona}/name-3.jpg`;
     if (quizScore >= 8) imageUnlock = `images/${persona}/name-10.jpg`;
 
-    //#8: Choose model
+    //#9: Pick model
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextHistory,
