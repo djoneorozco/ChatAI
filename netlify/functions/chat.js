@@ -1,32 +1,36 @@
-//# chat.js – Netlify Function using OpenAI v4 SDK, JSON Persona + Trust + Memory
+// chat.js – Netlify Function with JSON Persona + Trust + Memory
 
 const fs   = require("fs").promises;
 const path = require("path");
 const { OpenAI } = require("openai");
-const {
-  addTrustPoints,
-  getTrustLevel
-} = require("./trustManager");
+const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-// short‐term, per‐session rolling memory
+// In-memory rolling context per session
 const contextCache = {};
 
-// — Load the correct JSON for a given level & persona
+/**
+ * Load persona JSON for a given trust level and persona name
+ * @param {number} level
+ * @param {string} name
+ */
 async function loadPersona(level = 1, name = "odalys") {
-  const fileName = `level-${level}.json`;
-  const fullPath = path.join(__dirname, "personas", name, fileName);
-  const raw      = await fs.readFile(fullPath, "utf-8");
+  const file = `level-${level}.json`;
+  const full = path.join(__dirname, "personas", name, file);
+  const raw  = await fs.readFile(full, "utf-8");
   return JSON.parse(raw);
 }
 
-// — Build the system prompt from the persona JSON
+/**
+ * Build the system prompt from persona JSON
+ * @param {object} p
+ */
 function buildSystemPrompt(p) {
   const {
     name,
-    archetypeTagline,
     mbti,
     zodiac,
     quadrant,
+    archetypeTagline,
     psychologicalProfile,
     lifestyleDetails,
     sexAndRelationships,
@@ -56,61 +60,59 @@ Emotional States:
 Rules:
 - Speak ${style.toLowerCase()}, max ${cap} words.
 - No flirting until trust grows.
-- Ask only short follow-ups: "You?", "Why?", "When?"
+- Ask only short follow-ups like "You?", "Why?", "When?"
 `;
 }
 
-// — Ask OpenAI via v4 SDK
+/**
+ * Query OpenAI via v4 SDK
+ * @param {string} system
+ * @param {Array}  memory
+ * @param {string} user
+ */
 async function getOpenAIReply(system, memory, user) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const messages = [
+  const msgs   = [
     { role: "system",  content: system },
     ...memory,
-    { role: "user",    content: user }
+    { role: "user",    content: user   }
   ];
 
   const res = await openai.chat.completions.create({
     model:       "gpt-4",
     temperature: 0.7,
-    messages
+    messages:    msgs
   });
 
   return res.choices[0].message.content.trim();
 }
 
-// — Lambda entrypoint
+// Netlify Lambda entrypoint
 exports.handler = async (event) => {
   try {
-    // 1️⃣ Parse input & session
-    const sessionId    = event.headers["x-session-id"] || "default";
+    const sessionId      = event.headers["x-session-id"] || "default";
     const { message: userMessage = "" } = JSON.parse(event.body || "{}");
     if (!userMessage) {
-      return { statusCode: 400, body: JSON.stringify({ error: "No message provided." }) };
+      return { statusCode: 400, body: JSON.stringify({ error: "No message." }) };
     }
 
-    // 2️⃣ Add trust points for this user message
-    addTrustPoints(sessionId, userMessage);
-
-    // 3️⃣ Determine current trust level (1–10) & load that persona
+    // 1) Determine trust level & load persona JSON
     const trustLevel = getTrustLevel(sessionId);
     const persona    = await loadPersona(trustLevel, "odalys");
+    const system     = buildSystemPrompt(persona);
 
-    // 4️⃣ Build system prompt
-    const systemPrompt = buildSystemPrompt(persona);
-
-    // 5️⃣ Pull last 6 turns from memory
-    const mem     = (contextCache[sessionId] ||= []);
+    // 2) Rolling memory
+    const mem     = contextCache[sessionId] = contextCache[sessionId] || [];
     const history = mem.slice(-6);
 
-    // 6️⃣ Get a reply from OpenAI
-    const reply = await getOpenAIReply(systemPrompt, history, userMessage);
+    // 3) Query the model
+    const reply = await getOpenAIReply(system, history, userMessage);
 
-    // 7️⃣ Update in-memory chat history
+    // 4) Update memory & trust
     mem.push({ role: "user",      content: userMessage });
     mem.push({ role: "assistant", content: reply       });
+    addTrustPoints(sessionId, userMessage);
 
-    // 8️⃣ Return reply & updated trust level
     return {
       statusCode: 200,
       body: JSON.stringify({ reply, trustLevel })
