@@ -1,94 +1,105 @@
 // netlify/functions/chat.js
 
-const fs   = require("fs").promises;
+const fs = require("fs").promises;
 const path = require("path");
 const { OpenAI } = require("openai");
 const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-// In-memory rolling context per session
+// In-memory conversation memory per session
 const contextCache = {};
 
-/**
- * Load persona JSON for a given trust level and persona name
- */
-async function loadPersona(level = 1, name = "odalys") {
+// Load persona JSON based on trust level
+async function loadPersona(level, name = "odalys") {
   const fileName = `level-${level}.json`;
   const fullPath = path.join(__dirname, "personas", name, fileName);
-  console.log("🔍 Loading persona JSON from:", fullPath);
+  console.log("🔍 loadPersona:", fullPath);
   const raw = await fs.readFile(fullPath, "utf-8");
-  const persona = JSON.parse(raw);
-  return persona;
+  return JSON.parse(raw);
 }
 
-/**
- * Build the system prompt from persona JSON,
- * explicitly calling out the current job field.
- */
+// Build a concise system prompt from the persona
 function buildSystemPrompt(p) {
-  return `
-You are ${p.name}, ${p.archetypeTagline}.
-
+  return (
+    `You are ${p.name}, ${p.archetypeTagline}.
 Your current job is: ${p.professionalBackground.job}.
-
 ${p.greeting}
-
-${p.gptIntegration.contextInstruction}
-`;
+${p.gptIntegration.contextInstruction}`
+  ).trim();
 }
 
-/**
- * Query OpenAI via the official SDK
- */
-async function getOpenAIReply(systemPrompt, memory, userMessage) {
+// Call OpenAI to get a chat reply
+async function getOpenAIReply(systemPrompt, history, userMessage) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const messages = [
-    { role: "system",  content: systemPrompt },
-    ...memory,
-    { role: "user",    content: userMessage }
+    { role: "system", content: systemPrompt },
+    ...history,
+    { role: "user", content: userMessage }
   ];
-  console.log("📝 Prompt roles sequence:", messages.map(m => m.role));
+  console.log("📡 OpenAI call roles:", messages.map(m => m.role));
   const res = await openai.chat.completions.create({
-    model:       "gpt-4",
+    model: "gpt-4",
     temperature: 0.7,
     messages
   });
   return res.choices[0].message.content.trim();
 }
 
-// Lambda entrypoint
+// Netlify function handler
 exports.handler = async (event) => {
-  console.log("⚙️ chat.js loaded");
-  try {
-    const body = JSON.parse(event.body || "{}");
-    const userMessage = (body.message || "").trim();
-    const sessionId   = event.headers["x-session-id"] || "default";
+  console.log("⚙️ chat.js invoked");
 
-    console.log(`📨 New request: sessionId="${sessionId}", userMessage="${userMessage}"`);
-    if (!userMessage) {
-      return { statusCode: 400, body: JSON.stringify({ error: "No message provided." }) };
+  // --- Health check: list persona JSON files ---
+  if (event.queryStringParameters?.health) {
+    const personaDir = path.join(__dirname, "personas", "odalys");
+    try {
+      const files = await fs.readdir(personaDir);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ personaDir, files })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Health check failed", details: err.message })
+      };
     }
+  }
 
-    // 1) Determine trust level & load persona JSON
+  // --- Parse request body ---
+  let userMessage = "";
+  try {
+    const data = JSON.parse(event.body || "{}");
+    userMessage = (data.message || "").trim();
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON" }) };
+  }
+  if (!userMessage) {
+    return { statusCode: 400, body: JSON.stringify({ error: "No message provided" }) };
+  }
+  const sessionId = event.headers["x-session-id"] || "default";
+  console.log("📨 request", { sessionId, userMessage });
+
+  try {
+    // --- Determine trust level and load persona ---
     const trustLevel = getTrustLevel(sessionId);
-    console.log("🔑 trustLevel =", trustLevel);
-    const persona = await loadPersona(trustLevel, "odalys");
-    console.log("📥 Loaded persona object:", persona);
+    const persona = await loadPersona(trustLevel);
+    console.log("📥 persona.job:", persona.professionalBackground.job);
 
-    // 2) Build system prompt
+    // --- Build prompt ---
     const systemPrompt = buildSystemPrompt(persona);
-    console.log("📝 systemPrompt built");
+    console.log("📝 systemPrompt:\n", systemPrompt);
 
-    // 3) Rolling memory
-    const mem     = (contextCache[sessionId] = contextCache[sessionId] || []);
+    // --- Manage memory ---
+    const mem = contextCache[sessionId] = contextCache[sessionId] || [];
     const history = mem.slice(-6);
 
-    // 4) Query the model
+    // --- Query OpenAI ---
     const reply = await getOpenAIReply(systemPrompt, history, userMessage);
-    console.log("✅ OpenAI reply received");
+    console.log("✅ OpenAI reply:", reply);
 
-    // 5) Update memory & trust
-    mem.push({ role: "user",      content: userMessage });
-    mem.push({ role: "assistant", content: reply       });
+    // --- Update memory & trust ---
+    mem.push({ role: "user", content: userMessage });
+    mem.push({ role: "assistant", content: reply });
     addTrustPoints(sessionId, userMessage);
 
     return {
@@ -97,10 +108,11 @@ exports.handler = async (event) => {
     };
 
   } catch (err) {
-    console.error("❌ chat.js error:", err);
+    console.error("💥 Handler error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Chat handler crashed", details: err.message })
+      body: JSON.stringify({ error: "Internal server error", details: err.message })
     };
   }
 };
+
