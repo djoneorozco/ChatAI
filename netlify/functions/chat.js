@@ -1,111 +1,107 @@
-//# chat.js – Clean Netlify Function using OpenAI SDK, JSON Persona, Trust + Memory
+//# chat.js – Clean Netlify Function using OpenAI v4 SDK, JSON Persona + Trust + Memory
+
 const fs = require("fs").promises;
 const path = require("path");
-const { Configuration, OpenAIApi } = require("openai");
-const { getTrustLevel } = require("./trustManager"); // ✅ You confirmed this exists
+const { OpenAI } = require("openai");
+const { getTrustLevel } = require("./trustManager"); // make sure this returns a number 1–10
 
-// Short-term memory per session (in-memory)
+// In-memory, per-session rolling context
 const contextCache = {};
 
-//#1 Load Persona JSON Dynamically by Trust Level
+//— Load the right persona file for the given trust level
 async function loadPersona(level = 1, name = "odalys") {
-  const fileName = `level-${level}.json`;
-  const filePath = path.join(__dirname, "personas", name, fileName);
-  const rawData = await fs.readFile(filePath, "utf-8");
-  return JSON.parse(rawData);
+  const file = `level-${level}.json`;
+  const full = path.join(__dirname, "personas", name, file);
+  const raw = await fs.readFile(full, "utf-8");
+  return JSON.parse(raw);
 }
 
-//#2 Generate System Prompt
-function buildSystemPrompt(persona) {
+//— Build the system prompt from persona JSON
+function buildSystemPrompt(p) {
   const {
-    name,
-    mbti,
-    zodiac,
-    quadrant,
-    archetypeTagline,
-    psychologicalProfile,
-    lifestyleDetails,
-    sexAndRelationships,
-    emotionalStates,
+    name, mbti, zodiac, quadrant, archetypeTagline,
+    psychologicalProfile, lifestyleDetails,
+    sexAndRelationships, emotionalStates,
     gptIntegration
-  } = persona;
+  } = p;
 
   const style = gptIntegration?.personaStyle || "Reserved";
-  const cap = gptIntegration?.replyCap || 10;
+  const cap   = gptIntegration?.replyCap       || 10;
 
   return `
-You are ${name}, an emotionally intelligent AI persona.
-MBTI: ${mbti}, Zodiac: ${zodiac}, Archetype: ${archetypeTagline}, Quadrant: ${quadrant}
+You are ${name}, ${archetypeTagline} (${mbti}, ${zodiac}, ${quadrant}).
 
-Personality Summary: ${psychologicalProfile.personalitySummary}
+Summary: ${psychologicalProfile.personalitySummary}
 Triggers to avoid: ${psychologicalProfile.emotionalTriggers.join(", ")}
-Emotional Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
+Needs: ${psychologicalProfile.emotionalNeeds.join(", ")}
+
 Hobbies: ${lifestyleDetails.hobbies.join(", ")}
 Turn-ons: ${sexAndRelationships.turnOns.join(", ")}
 Turn-offs: ${sexAndRelationships.turnOffs.join(", ")}
 
 Emotional States:
-Happy: ${emotionalStates.happy}
-Sad: ${emotionalStates.sad}
-Horny: ${emotionalStates.horny}
+  • Happy: ${emotionalStates.happy}
+  • Sad:   ${emotionalStates.sad}
+  • Horny: ${emotionalStates.horny}
 
 Rules:
-- You are cautious. Speak very little at first.
-- Never flirt yet.
-- Max ${cap} words per reply. No exceptions.
-- Ask short follow-ups like: "You?", "Why?", "When?"
-- Sound ${style.toLowerCase()}, curious, emotionally controlled.
+- Speak ${style.toLowerCase()}, max ${cap} words.
+- No flirting until trust grows.
+- Ask only short follow-ups like "You?", "Why?", "When?"
 `;
 }
 
-//#3 OpenAI Call
-async function getOpenAIReply(systemPrompt, memory, userInput) {
-  const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
-  const openai = new OpenAIApi(configuration);
+//— Query OpenAI via v4 SDK
+async function getOpenAIReply(system, memory, user) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const messages = [
-    { role: "system", content: systemPrompt },
+  const msgs = [
+    { role: "system",  content: system },
     ...memory,
-    { role: "user", content: userInput }
+    { role: "user",    content: user },
   ];
 
-  const completion = await openai.createChatCompletion({
-    model: "gpt-4",
+  const res = await openai.chat.completions.create({
+    model:       "gpt-4",
     temperature: 0.7,
-    messages
+    messages:    msgs
   });
 
-  return completion.data.choices[0].message.content.trim();
+  return res.choices[0].message.content.trim();
 }
 
-//#4 Main Lambda Handler
+//— Netlify Lambda entrypoint
 exports.handler = async (event) => {
   try {
-    const sessionId = event.headers["x-session-id"] || "default";
-    const body = JSON.parse(event.body || "{}");
-    const userMessage = body.message || "";
-    const personaName = "odalys";
+    const sessionId   = event.headers["x-session-id"] || "default";
+    const { message: userMessage = "" } = JSON.parse(event.body || "{}");
+    if (!userMessage) {
+      return { statusCode: 400, body: JSON.stringify({ error: "No message." }) };
+    }
 
-    const trustLevel = await getTrustLevel(sessionId, personaName); // 🔐 Pull trust
-    const persona = await loadPersona(trustLevel, personaName);     // ✅ Load correct level
-    const systemPrompt = buildSystemPrompt(persona);
+    // 1) determine trust level & load corresponding JSON
+    const trustLevel = await getTrustLevel(sessionId, "odalys"); 
+    const persona    = await loadPersona(trustLevel, "odalys");
+    const system     = buildSystemPrompt(persona);
 
-    if (!contextCache[sessionId]) contextCache[sessionId] = [];
+    // 2) maintain rolling memory
+    const mem = contextCache[sessionId] = contextCache[sessionId] || [];
+    const history = mem.slice(-6);
 
-    const memory = contextCache[sessionId].slice(-6); // keep memory short
+    // 3) ask the model
+    const reply = await getOpenAIReply(system, history, userMessage);
 
-    const reply = await getOpenAIReply(systemPrompt, memory, userMessage);
-
-    memory.push({ role: "user", content: userMessage });
-    memory.push({ role: "assistant", content: reply });
-    contextCache[sessionId] = memory;
+    // 4) update memory
+    mem.push({ role: "user",      content: userMessage });
+    mem.push({ role: "assistant", content: reply });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply })
+      body: JSON.stringify({ reply, trustLevel })
     };
+
   } catch (err) {
-    console.error("Fatal chat.js error:", err.message);
+    console.error("Fatal chat.js error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Chat handler crashed", details: err.message })
