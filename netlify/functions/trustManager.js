@@ -23,16 +23,16 @@ function updateTrustScore(currentScore, message, isQuizPassed = false) {
   const msg = message.toLowerCase().trim();
 
   // 🚫 Penalties
-  if (/bitch|tits|suck|dick|whore|slut/.test(msg))     return Math.max(score - 5, 0);
-  if (/fuck|nudes|desperate/.test(msg))                return Math.max(score - 3, 0);
-  if (/please|show me|now/.test(msg))                  return Math.max(score - 1, 0);
+  if (/bitch|tits|suck|dick|whore|slut/.test(msg)) return Math.max(score - 5, 0);
+  if (/fuck|nudes|desperate/.test(msg)) return Math.max(score - 3, 0);
+  if (/please|show me|now/.test(msg)) return Math.max(score - 1, 0);
 
   // ✅ Quiz bonus
-  if (isQuizPassed)                                    return Math.min(score + 10, 100);
+  if (isQuizPassed) return Math.min(score + 10, 100);
 
-  const tokenCount       = msg.split(/\s+/).length;
-  const hobbySignals     = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
-  const keywordMatches   = (msg.match(hobbySignals) || []).length;
+  const tokenCount = msg.split(/\s+/).length;
+  const hobbySignals = /hobbies|do you.*like|side hustle|job|career|favorite movie|music|netflix|team|nba|nfl/gi;
+  const keywordMatches = (msg.match(hobbySignals) || []).length;
 
   let bonus = 0;
   if (keywordMatches >= 4)      bonus = 5;
@@ -47,9 +47,6 @@ const trustScores = {}; // { [sessionId]: number }
 
 /**
  * Adds trust points for a session based on user message
- * @param {string} sessionId
- * @param {string} message
- * @param {boolean} isQuizPassed
  */
 function addTrustPoints(sessionId, message, isQuizPassed = false) {
   const current = trustScores[sessionId] || 0;
@@ -58,8 +55,6 @@ function addTrustPoints(sessionId, message, isQuizPassed = false) {
 
 /**
  * Returns numeric trust level (1–10) for a session
- * @param {string} sessionId
- * @returns {number}
  */
 function getTrustLevel(sessionId) {
   const score = trustScores[sessionId] || 0;
