@@ -1,24 +1,28 @@
 // netlify/functions/chat.js
 
-const fs        = require("fs").promises;
-const path      = require("path");
 const { OpenAI } = require("openai");
 const { getTrustLevel, addTrustPoints } = require("./trustManager");
 
-// In-memory rolling context per session
-const contextCache = {};
+// —––– require all levels at build time
+const level1 = require("./personas/odalys/level-1.json");
+const level2 = require("./personas/odalys/level-2.json");
+const level3 = require("./personas/odalys/level-3.json");
+const level4 = require("./personas/odalys/level-4.json");
+// …and so on up through level-10 if you have them
+const personaMap = {
+  1: level1,
+  2: level2,
+  3: level3,
+  4: level4,
+  // 5: require("./personas/odalys/level-5.json"),
+  // …
+};
 
 /**
- * Load persona JSON for a given trust level and persona name.
- * This path will resolve once you’ve set `included_files = ["personas/odalys/*.json"]`
- * in your netlify.toml (relative to netlify/functions).
+ * “Load” a persona by looking up the in-memory map.
  */
-async function loadPersona(level = 1, name = "odalys") {
-  const file = `level-${level}.json`;
-  const full = path.join(__dirname, "personas", name, file);
-  console.log(`[chat] Loading persona JSON from: ${full}`);
-  const raw  = await fs.readFile(full, "utf-8");
-  return JSON.parse(raw);
+function loadPersona(level = 1) {
+  return personaMap[level] || level1;
 }
 
 /**
@@ -39,9 +43,9 @@ function buildSystemPrompt(p) {
   } = p;
 
   const style    = gptIntegration.personaStyle || "Reserved";
-  const cap      = gptIntegration.replyCap || 10;
-  const hobbies  = (lifestyleDetails.hobbies || []).join(", ") || "—";
-  const turnOns  = (sexAndRelationships.turnOns || []).join(", ") || "—";
+  const cap      = gptIntegration.replyCap       || 10;
+  const hobbies  = (lifestyleDetails.hobbies || []).join(", ")    || "—";
+  const turnOns  = (sexAndRelationships.turnOns || []).join(", ")  || "—";
   const turnOffs = (sexAndRelationships.turnOffs || []).join(", ") || "—";
 
   return `
@@ -61,21 +65,21 @@ Emotional States:
   • Horny: ${emotionalStates.horny || "—"}
 
 Rules:
-- Speak ${style.toLowerCase()}; max ${cap} words per reply.
+- Speak ${style.toLowerCase()}, max ${cap} words per reply.
 - No flirting until trust grows.
 - Ask only short follow-ups like “You?”, “Why?”, “When?”.
 `.trim();
 }
 
 /**
- * Query OpenAI via v4 SDK.
+ * Ask OpenAI for a chat completion.
  */
 async function getOpenAIReply(system, memory, userText) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const messages = [
-    { role: "system",  content: system    },
+    { role: "system",  content: system   },
     ...memory,
-    { role: "user",    content: userText  }
+    { role: "user",    content: userText }
   ];
 
   const res = await openai.chat.completions.create({
@@ -87,8 +91,11 @@ async function getOpenAIReply(system, memory, userText) {
   return res.choices[0].message.content.trim();
 }
 
+// In-memory chat history by session
+const contextCache = {};
+
 /**
- * Netlify Lambda handler.
+ * Netlify Function entrypoint
  */
 exports.handler = async (event) => {
   try {
@@ -96,43 +103,41 @@ exports.handler = async (event) => {
     const { message: userMessage = "" } = JSON.parse(event.body || "{}");
 
     if (!userMessage) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "No message provided." })
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: "No message provided." }) };
     }
 
-    // 1) Determine trust level & load the appropriate persona file
+    // 1) figure out trust
     const trustLevel = getTrustLevel(sessionId);
-    const persona    = await loadPersona(trustLevel, "odalys");
-    const system     = buildSystemPrompt(persona);
 
-    // 2) Rolling memory (keep last 6 messages)
+    // 2) grab the right persona blob
+    const persona = loadPersona(trustLevel);
+
+    // 3) build the system
+    const system  = buildSystemPrompt(persona);
+
+    // 4) get the last 6 msgs
     const mem     = (contextCache[sessionId] = contextCache[sessionId] || []);
     const history = mem.slice(-6);
 
-    // 3) Ask OpenAI
+    // 5) ask GPT
     const reply   = await getOpenAIReply(system, history, userMessage);
 
-    // 4) Update memory & trust
+    // 6) stash user + bot into memory & bump trust
     mem.push({ role: "user",      content: userMessage });
-    mem.push({ role: "assistant", content: reply      });
+    mem.push({ role: "assistant", content: reply       });
     addTrustPoints(sessionId, userMessage);
 
-    // 5) Return
+    // 7) return
     return {
       statusCode: 200,
       body: JSON.stringify({ reply, trustLevel })
     };
 
   } catch (err) {
-    console.error("❌ Fatal chat.js error:", err);
+    console.error("💥 chat.js crashed:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error:   "Chat handler crashed",
-        details: err.message
-      })
+      body: JSON.stringify({ error: "Internal error", details: err.message })
     };
   }
 };
