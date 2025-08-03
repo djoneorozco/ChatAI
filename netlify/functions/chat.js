@@ -8,7 +8,7 @@ const contextCache = {};
 
 //#1 Load Persona JSON
 async function loadPersona(fileName) {
-  const filePath = path.join(__dirname, "personas", fileName);
+  const filePath = path.join(__dirname, "personas", "odalys", fileName);
   const rawData = await fs.readFile(filePath, "utf-8");
   return JSON.parse(rawData);
 }
